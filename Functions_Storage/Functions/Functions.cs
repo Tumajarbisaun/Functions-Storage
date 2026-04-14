@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -991,21 +992,190 @@ public static class ImageUtils
 }
 public static class AiUtils
 {
-    public static double Sigmoid(double x) => throw new NotImplementedException();
-    public static double Relu(double x) => throw new NotImplementedException();
-    public static double Tanh(double x) => throw new NotImplementedException();
-    public static double EuclideanDistance(double[] vectorA, double[] vectorB) => throw new NotImplementedException();
-    public static double MeanSquaredError(double[] actual, double[] predicted) => throw new NotImplementedException();
-    public static double CrossEntropy(double[] actual, double[] predicted) => throw new NotImplementedException();
-    public static double CalculateAccuracy(int[] actual, int[] predicted) => throw new NotImplementedException();
-    public static double[] Normalize(double[] data) => throw new NotImplementedException();
-    public static double[] Standardize(double[] data) => throw new NotImplementedException();
-    public static (T[] train, T[] test) SplitData<T>(T[] data, double ratio = 1.0) => throw new NotImplementedException();
-    public static double DotProduct(double[] a, double[] b) => throw new NotImplementedException();
-    public static double[,] MultiplyMatrices(double[,] matrixA, double[,] matrixB) => throw new NotImplementedException();
-    public static double[,] Transpose(double[,] matrix) => throw new NotImplementedException();
-    public static int GetLevenshteinDistance(string source, string target) => throw new NotImplementedException();
-    public static string[] GetKeywords(string text, int count) => throw new NotImplementedException();
+    public static double Sigmoid(double x)
+    {
+        return 1.0 / (1.0 + Math.Exp(-x));
+    }
+    public static double Relu(double x)
+    {
+        return Math.Max(0, x);
+    }
+    public static double Tanh(double x)
+    {
+        return Math.Tanh(x);
+    }
+    public static double EuclideanDistance(double[] vectorA, double[] vectorB)
+    {
+        if (vectorA.Length != vectorB.Length) throw new ArgumentException("Vectors must have the same length");
+        double sum = 0;
+        for (int i = 0; i < vectorA.Length; i++)
+            sum += Math.Pow(vectorA[i] - vectorB[i], 2);
+        return Math.Sqrt(sum);
+    }
+    public static double MeanSquaredError(double[] actual, double[] predicted)
+    {
+        if (actual.Length != predicted.Length) throw new ArgumentException("Arrays must have the same length");
+        double sum = 0;
+        for (int i = 0; i < actual.Length; i++)
+            sum += Math.Pow(actual[i] - predicted[i], 2);
+        return sum / actual.Length;
+    }
+    public static double CrossEntropy(double[] actual, double[] predicted)
+    {
+        double sum = 0;
+        for (int i = 0; i < actual.Length; i++)
+            sum += actual[i] * Math.Log(predicted[i] + 1e-15);
+        return -sum;
+    }
+    public static double CalculateAccuracy(int[] actual, int[] predicted)
+    {
+        int correct = 0;
+        for (int i = 0; i < actual.Length; i++)
+            if (actual[i] == predicted[i]) correct++;
+        return (double)correct / actual.Length;
+    }
+    public static double[] Normalize(double[] data)
+    {
+        double min = data.Min();
+        double max = data.Max();
+        if (Math.Abs(max - min) < 1e-9) return data;
+        return data.Select(x => (x - min) / (max - min)).ToArray();
+    }
+    public static double[] Standardize(double[] data)
+    {
+        double avg = data.Average();
+        double stdDev = Math.Sqrt(data.Select(x => Math.Pow(x - avg, 2)).Sum() / data.Length);
+        if (stdDev < 1e-9) return data;
+        return data.Select(x => (x - avg) / stdDev).ToArray();
+    }
+    public static (T[] train, T[] test) SplitData<T>(T[] data, double ratio = 0.8)
+    {
+        int trainSize = (int)(data.Length * ratio);
+        T[] train = data.Take(trainSize).ToArray();
+        T[] test = data.Skip(trainSize).ToArray();
+        return (train, test);
+    }
+    public static double DotProduct(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) throw new ArgumentException("Lengths must match");
+        return a.Zip(b, (x, y) => x * y).Sum();
+    }
+    public static double[,] MultiplyMatrices(double[,] matrixA, double[,] matrixB)
+    {
+        int rA = matrixA.GetLength(0), cA = matrixA.GetLength(1);
+        int rB = matrixB.GetLength(0), cB = matrixB.GetLength(1);
+        if (cA != rB) throw new ArgumentException("Invalid matrix dimensions");
+        double[,] result = new double[rA, cB];
+        for (int i = 0; i < rA; i++)
+            for (int j = 0; j < cB; j++)
+                for (int k = 0; k < cA; k++)
+                    result[i, j] += matrixA[i, k] * matrixB[k, j];
+        return result;
+    }
+    public static double[,] Transpose(double[,] matrix)
+    {
+        int rows = matrix.GetLength(0), cols = matrix.GetLength(1);
+        double[,] result = new double[cols, rows];
+        for (int i = 0; i < rows; i++)
+            for (int j = 0; j < cols; j++)
+                result[j, i] = matrix[i, j];
+        return result;
+    }
+    public static int GetLevenshteinDistance(string source, string target)
+    {
+        if (string.IsNullOrEmpty(source)) return target?.Length ?? 0;
+        if (string.IsNullOrEmpty(target)) return source.Length;
+        int[,] d = new int[source.Length + 1, target.Length + 1];
+        for (int i = 0; i <= source.Length; i++) d[i, 0] = i;
+        for (int j = 0; j <= target.Length; j++) d[0, j] = j;
+        for (int i = 1; i <= source.Length; i++)
+            for (int j = 1; j <= target.Length; j++)
+            {
+                int cost = (target[j - 1] == source[i - 1]) ? 0 : 1;
+                d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1), d[i - 1, j - 1] + cost);
+            }
+        return d[source.Length, target.Length];
+    }
+    public static string[] GetKeywords(string text, int count)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Array.Empty<string>();
+        char[] separators = { ' ', '.', ',', '!', '?', ':', ';', '-', '\n', '\r' };
+        return text.ToLower().Split(separators, StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length > 3)
+            .GroupBy(w => w)
+            .OrderByDescending(g => g.Count())
+            .Take(count)
+            .Select(g => g.Key).ToArray();
+    }
+    public static double[][] RunCentNN(double[][] data, int mClusters, double epsilonPercent = 0.05)
+    {
+        if (data == null || data.Length == 0) return Array.Empty<double[]>();
+        int dims = data[0].Length;
+        double[] meanCenter = new double[dims];
+        for (int j = 0; j < dims; j++) meanCenter[j] = data.Average(row => row[j]);
+
+        double epsilon = (data.Sum(d => d.Max() - d.Min()) / dims) * epsilonPercent;
+        List<double[]> weights = new List<double[]> { meanCenter };
+        Random rnd = new Random();
+
+        while (weights.Count < mClusters)
+        {
+            for (int epoch = 0; epoch < 50; epoch++)
+            {
+                int[] nCounts = new int[weights.Count];
+                foreach (var x in data)
+                {
+                    int win = 0; double minDist = double.MaxValue;
+                    for (int i = 0; i < weights.Count; i++)
+                    {
+                        double d = EuclideanDistance(x, weights[i]);
+                        if (d < minDist) { minDist = d; win = i; }
+                    }
+                    nCounts[win]++;
+                    double lr = 1.0 / (nCounts[win] + 1);
+                    for (int j = 0; j < dims; j++) weights[win][j] += lr * (x[j] - weights[win][j]);
+                }
+            }
+            if (weights.Count >= mClusters) break;
+            double[] errors = new double[weights.Count];
+            foreach (var x in data)
+            {
+                int win = 0; double minDist = double.MaxValue;
+                for (int i = 0; i < weights.Count; i++)
+                {
+                    double d = EuclideanDistance(x, weights[i]);
+                    if (d < minDist) { minDist = d; win = i; }
+                }
+                errors[win] += Math.Pow(minDist, 2);
+            }
+            int worst = Array.IndexOf(errors, errors.Max());
+            double[] nw = new double[dims];
+            for (int j = 0; j < dims; j++) nw[j] = weights[worst][j] + (rnd.NextDouble() * 2 - 1) * epsilon;
+            weights.Add(nw);
+        }
+        return weights.ToArray();
+    }
+    public static int[] GetKNearestNeighbors(double[] target, double[][] data, int k)
+    {
+        int n = data.Length;
+        var distances = new (int index, double dist)[n];
+        for (int i = 0; i < n; i++)
+        {
+            distances[i].index = i;
+            distances[i].dist = EuclideanDistance(target, data[i]);
+        }
+        Array.Sort(distances, (a, b) =>
+        {
+            return a.dist.CompareTo(b.dist);
+        });
+        int resultCount = Math.Min(k, n);
+        int[] neighborIndices = new int[resultCount];
+        for (int i = 0; i < resultCount; i++)
+        {
+            neighborIndices[i] = distances[i].index;
+        }
+        return neighborIndices;
+    }
 }
 public static class HardwareUtils
 {
@@ -1098,4 +1268,712 @@ public static class UnitConverter
 {
     public static double KmHtoMs(double speed) => throw new NotImplementedException();
     public static double ConvertCurrency(double amount, double rate) => throw new NotImplementedException();
+}
+public class Value
+{
+    public double Data { get; set; }
+    public double Grad { get; set; } = 0;
+    private Action _backward;
+    private HashSet<Value> _prev;
+    public Value(double data, IEnumerable<Value> children = null)
+    {
+        Data = data;
+        _prev = children != null ? new HashSet<Value>(children) : new HashSet<Value>();
+        _backward = () => { };
+    }
+    public static Value operator +(Value a, Value b)
+    {
+        var outV = new Value(a.Data + b.Data, new[] { a, b });
+        outV._backward = () => {
+            lock (a) a.Grad += outV.Grad;
+            lock (b) b.Grad += outV.Grad;
+        };
+        return outV;
+    }
+    public static Value operator *(Value a, Value b)
+    {
+        var outV = new Value(a.Data * b.Data, new[] { a, b });
+        outV._backward = () => {
+            lock (a) a.Grad += b.Data * outV.Grad;
+            lock (b) b.Grad += a.Data * outV.Grad;
+        };
+        return outV;
+    }
+    public static Value operator -(Value a, Value b) => a + (b * new Value(-1));
+    public Value Exp()
+    {
+        double e = Math.Exp(Data);
+        var outV = new Value(e, new[] { this });
+        outV._backward = () => {
+            lock (this) Grad += e * outV.Grad;
+        };
+        return outV;
+    }
+    public Value Sigmoid()
+    {
+        double s = 1.0 / (1.0 + Math.Exp(-Data));
+        var outV = new Value(s, new[] { this });
+        outV._backward = () => { lock (this) Grad += s * (1.0 - s) * outV.Grad; };
+        return outV;
+    }
+    public Value Tanh()
+    {
+        double t = Math.Tanh(Data);
+        var outV = new Value(t, new[] { this });
+        outV._backward = () => { lock (this) Grad += (1.0 - t * t) * outV.Grad; };
+        return outV;
+    }
+    public void Backward()
+    {
+        var topo = new List<Value>();
+        var visited = new HashSet<Value>();
+        void BuildTopo(Value v)
+        {
+            if (!visited.Contains(v)) { visited.Add(v); foreach (var child in v._prev) BuildTopo(child); topo.Add(v); }
+        }
+        BuildTopo(this);
+        this.Grad = 1.0;
+        topo.Reverse();
+        foreach (var v in topo) v._backward();
+    }
+}
+public class LstmCell
+{
+    public List<Value> Wf, Uf, Wi, Ui, Wc, Uc, Wo, Uo;
+    public List<Value> bf, bi, bc, bo;
+    private int _inSize, _hSize;
+    private static Random rnd = new Random();
+
+    public LstmCell(int inputSize, int hiddenSize)
+    {
+        _inSize = inputSize; _hSize = hiddenSize;
+        Wf = InitM(hiddenSize, inputSize); Uf = InitM(hiddenSize, hiddenSize); bf = InitV(hiddenSize);
+        Wi = InitM(hiddenSize, inputSize); Ui = InitM(hiddenSize, hiddenSize); bi = InitV(hiddenSize);
+        Wc = InitM(hiddenSize, inputSize); Uc = InitM(hiddenSize, hiddenSize); bc = InitV(hiddenSize);
+        Wo = InitM(hiddenSize, inputSize); Uo = InitM(hiddenSize, hiddenSize); bo = InitV(hiddenSize);
+    }
+
+    private List<Value> InitM(int rows, int cols)
+    {
+        double scale = Math.Sqrt(2.0 / (rows + cols));
+        return Enumerable.Range(0, rows * cols).Select(_ => new Value((rnd.NextDouble() * 2 - 1) * scale)).ToList();
+    }
+
+    private List<Value> InitV(int size) => Enumerable.Range(0, size).Select(_ => new Value(0)).ToList();
+
+    public List<Value> Parameters() =>
+        Wf.Concat(Uf).Concat(bf).Concat(Wi).Concat(Ui).Concat(bi)
+          .Concat(Wc).Concat(Uc).Concat(bc).Concat(Wo).Concat(Uo).Concat(bo).ToList();
+
+    public (List<Value> h_next, List<Value> c_next) Forward(List<Value> x, List<Value> h_prev, List<Value> c_prev)
+    {
+        List<Value> f = Gate(x, h_prev, Wf, Uf, bf, true);
+        List<Value> i = Gate(x, h_prev, Wi, Ui, bi, true);
+        List<Value> c_tilde = Gate(x, h_prev, Wc, Uc, bc, false);
+
+        List<Value> c_next = new List<Value>();
+        for (int j = 0; j < _hSize; j++)
+            c_next.Add((f[j] * c_prev[j]) + (i[j] * c_tilde[j]));
+
+        List<Value> o = Gate(x, h_prev, Wo, Uo, bo, true);
+        List<Value> h_next = new List<Value>();
+        for (int j = 0; j < _hSize; j++)
+            h_next.Add(o[j] * c_next[j].Tanh());
+
+        return (h_next, c_next);
+    }
+
+    private List<Value> Gate(List<Value> x, List<Value> h, List<Value> W, List<Value> U, List<Value> b, bool isSigmoid)
+    {
+        List<Value> res = new List<Value>();
+        for (int i = 0; i < _hSize; i++)
+        {
+            Value sum = b[i];
+            for (int j = 0; j < _inSize; j++) sum = sum + (W[i * _inSize + j] * x[j]);
+            for (int j = 0; j < _hSize; j++) sum = sum + (U[i * _hSize + j] * h[j]);
+            res.Add(isSigmoid ? sum.Sigmoid() : sum.Tanh());
+        }
+        return res;
+    }
+}
+public static class PatternAnalyzer
+{
+    public enum SequenceType { Linear, Oscillating, Fibonacci, Chaotic }
+
+    public static SequenceType Identify(double[] data)
+    {
+        if (data.Length < 3) return SequenceType.Chaotic;
+
+        double[] deltas = new double[data.Length - 1];
+        for (int i = 0; i < deltas.Length; i++) deltas[i] = data[i + 1] - data[i];
+
+        bool isLinear = true;
+        for (int i = 0; i < deltas.Length - 1; i++)
+            if (Math.Abs(deltas[i] - deltas[i + 1]) > 0.1) isLinear = false;
+        if (isLinear) return SequenceType.Linear;
+
+        bool isOsc = true;
+        for (int i = 0; i < deltas.Length - 1; i++)
+        {
+            if (Math.Sign(deltas[i]) == Math.Sign(deltas[i + 1]) && deltas[i] != 0) isOsc = false;
+        }
+        if (isOsc) return SequenceType.Oscillating;
+
+        bool isFib = true;
+        for (int i = 2; i < data.Length; i++)
+            if (Math.Abs((data[i - 2] + data[i - 1]) - data[i]) > 0.5) isFib = false;
+        if (isFib) return SequenceType.Fibonacci;
+
+        return SequenceType.Chaotic;
+    }
+}
+public class EncoderDecoderModel
+{
+    public LstmCell encL1_F, encL1_B, decL1;
+    public List<Value> outW;
+    public Value outB;
+    public Dictionary<PatternAnalyzer.SequenceType, List<Value>> patternExperts;
+    public List<Value> gatingW;
+    private int _hSize;
+
+    public EncoderDecoderModel(int hiddenSize = 64)
+    {
+        _hSize = hiddenSize;
+        encL1_F = new LstmCell(1, hiddenSize);
+        encL1_B = new LstmCell(1, hiddenSize);
+        decL1 = new LstmCell(1, hiddenSize);
+
+        double scale = Math.Sqrt(2.0 / (hiddenSize + 1));
+        var rnd = new Random();
+
+        outW = Enumerable.Range(0, hiddenSize).Select(_ => new Value((rnd.NextDouble() * 2 - 1) * scale)).ToList();
+        outB = new Value(0);
+
+        int numExperts = Enum.GetValues(typeof(PatternAnalyzer.SequenceType)).Length;
+        double gateScale = Math.Sqrt(2.0 / (hiddenSize + numExperts));
+        gatingW = Enumerable.Range(0, hiddenSize * numExperts)
+            .Select(_ => new Value((rnd.NextDouble() * 2 - 1) * gateScale)).ToList();
+
+        patternExperts = new Dictionary<PatternAnalyzer.SequenceType, List<Value>>();
+        foreach (PatternAnalyzer.SequenceType type in Enum.GetValues(typeof(PatternAnalyzer.SequenceType)))
+        {
+            patternExperts[type] = Enumerable.Range(0, hiddenSize).Select(_ => new Value(0)).ToList();
+        }
+    }
+    public List<Value> Parameters()
+    {
+        var p = encL1_F.Parameters()
+            .Concat(encL1_B.Parameters())
+            .Concat(decL1.Parameters())
+            .Concat(outW)
+            .Concat(gatingW)
+            .Append(outB).ToList();
+
+        foreach (var expertParams in patternExperts.Values)
+            p.AddRange(expertParams);
+
+        return p;
+    }
+    public double[] GetWeightsSnapshot() => Parameters().Select(p => p.Data).ToArray();
+
+    public void ApplyWeightsSnapshot(double[] snapshot)
+    {
+        var p = Parameters();
+        if (snapshot.Length != p.Count) return;
+        for (int i = 0; i < p.Count; i++) p[i].Data = snapshot[i];
+    }
+    public List<Value> Forward(double[] normalizedInput, int nFuture)
+    {
+        double baseStep = normalizedInput.Length > 1 ? (normalizedInput.Last() - normalizedInput.First()) / (normalizedInput.Length - 1) : 0;
+        double[] intuition = ContextMemory.GetMemoryInfluence(normalizedInput, _hSize);
+
+        var hf = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
+        var cf = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
+        foreach (var v in normalizedInput) (hf, cf) = encL1_F.Forward(new List<Value> { new Value(v) }, hf, cf);
+
+        var hb = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
+        var cb = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
+        foreach (var v in normalizedInput.Reverse()) (hb, cb) = encL1_B.Forward(new List<Value> { new Value(v) }, hb, cb);
+
+        var h_dec = new List<Value>();
+        var c_dec = new List<Value>();
+        for (int i = 0; i < _hSize; i++)
+        {
+            h_dec.Add((hf[i] + hb[i]) * new Value(0.5));
+            c_dec.Add((cf[i] + cb[i]) * new Value(0.5));
+        }
+
+        var expertTypes = Enum.GetValues(typeof(PatternAnalyzer.SequenceType)).Cast<PatternAnalyzer.SequenceType>().ToList();
+        var expertWeights = new List<Value>();
+
+        var scores = new List<Value>();
+        for (int e = 0; e < expertTypes.Count; e++)
+        {
+            Value score = new Value(0);
+            for (int j = 0; j < _hSize; j++)
+                score = score + (h_dec[j] * gatingW[e * _hSize + j]);
+            scores.Add(score);
+        }
+
+        foreach (var s in scores) expertWeights.Add(s.Sigmoid());
+
+        List<Value> preds = new List<Value>();
+        Value lastValue = new Value(normalizedInput.Last());
+
+        for (int i = 0; i < nFuture; i++)
+        {
+            (h_dec, c_dec) = decL1.Forward(new List<Value> { lastValue }, h_dec, c_dec);
+
+            Value blendedExpertCorrection = new Value(0);
+            for (int e = 0; e < expertTypes.Count; e++)
+            {
+                var expertParams = patternExperts[expertTypes[e]];
+                Value expertOpinion = new Value(0);
+                for (int j = 0; j < _hSize; j++)
+                    expertOpinion = expertOpinion + (h_dec[j] * expertParams[j]);
+
+                blendedExpertCorrection = blendedExpertCorrection + (expertOpinion * expertWeights[e]);
+            }
+
+            Value coreDelta = outB;
+            for (int j = 0; j < _hSize; j++)
+                coreDelta = coreDelta + (h_dec[j] * (outW[j] + new Value(intuition[j])));
+
+            Value nextVal = lastValue + new Value(baseStep) + coreDelta + blendedExpertCorrection;
+            preds.Add(nextVal);
+            lastValue = nextVal;
+        }
+        return preds;
+    }
+
+    public List<double[]> ForwardVariants(double[] normalizedInput, int nFuture, int count = 3)
+    {
+        var results = new List<double[]>();
+        Random rnd = new Random();
+        double[] originalWeights = GetWeightsSnapshot();
+        for (int v = 0; v < count; v++)
+        {
+            double[] noisyWeights = originalWeights.Select(w => w + (rnd.NextDouble() * 2 - 1) * (w * 0.03)).ToArray();
+            ApplyWeightsSnapshot(noisyWeights);
+            results.Add(Forward(normalizedInput, nFuture).Select(p => p.Data).ToArray());
+        }
+        ApplyWeightsSnapshot(originalWeights);
+        return results;
+    }
+
+    public void SaveWeights(string file)
+    {
+        try
+        {
+            var p = Parameters();
+            File.WriteAllLines(file, p.Select(v => v.Data.ToString("G17", CultureInfo.InvariantCulture)));
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine($"\n[SYSTEM] Збережено {p.Count} параметрів.");
+            Console.ResetColor();
+        }
+        catch (Exception ex) { Console.WriteLine($"\n[!] ПОМИЛКА: {ex.Message}"); }
+    }
+
+    public void LoadWeights(string file)
+    {
+        if (!File.Exists(file) || new FileInfo(file).Length == 0) return;
+        try
+        {
+            var lines = File.ReadAllLines(file);
+            var p = Parameters();
+            if (lines.Length != p.Count) return;
+            for (int i = 0; i < p.Count; i++) p[i].Data = double.Parse(lines[i], CultureInfo.InvariantCulture);
+            Console.WriteLine($"\n[+] MoE-Engine ({p.Count} точок) завантажено.");
+        }
+        catch { Console.WriteLine("\n[!] Помилка weights.csv."); }
+    }
+}
+public static class Visualizer
+{
+    public static void PrintHeader()
+    {
+        Console.Clear();
+        Console.ForegroundColor = ConsoleColor.Magenta;
+        Console.WriteLine(@"
+    ███╗  ██╗███████╗██╗██████╗  ██████╗ ███╗  ██╗██╗  ██╗ █████╗ 
+    ████╗ ██║██╔════╝██║██╔══██╗██╔═══██╗████╗ ██║██║ ██╔╝██╔══██╗
+    ██╔██╗██║█████╗  ██║██████╔╝██║   ██║██╔██╗██║█████╔╝ ███████║
+    ██║╚████║██╔══╝  ██║██╔══██╗██║   ██║██║╚████║██╔═██╗ ██║  ██║
+    ██║ ╚███║███████╗██║██║  ██║╚██████╔╝██║ ╚███║██║  ██╗██║  ██║
+    ╚═╝  ╚══╝╚══════╝╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚══╝╚═╝  ╚═╝╚═╝  ╚═╝");
+        Console.WriteLine("      Stacked Bidirectional LSTM | Neural Pulse Monitor\n");
+        Console.ResetColor();
+    }
+    public static void PrintNeuralPulse(double gradNorm, double velNorm)
+    {
+        Console.Write(" [Pulse: ");
+        if (gradNorm > 0.5) { Console.ForegroundColor = ConsoleColor.Red; Console.Write("HOT"); }
+        else if (gradNorm > 0.05) { Console.ForegroundColor = ConsoleColor.Yellow; Console.Write("ACTIVE"); }
+        else { Console.ForegroundColor = ConsoleColor.Green; Console.Write("STABLE"); }
+
+        Console.ResetColor();
+        Console.Write($" | Flow: {gradNorm:F4} | Inertia: {velNorm:F4}]");
+    }
+
+    public static void PrintPrediction(double[] input, double[] forecast)
+    {
+        var pattern = PatternAnalyzer.Identify(input);
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"\n--- ВІЗУАЛІЗАЦІЯ ПАТТЕРНУ: {pattern.ToString().ToUpper()} ---");
+        Console.ResetColor();
+
+        double min = Math.Min(input.Min(), forecast.Min());
+        double max = Math.Max(input.Max(), forecast.Max());
+        int height = 10;
+
+        for (int y = height; y >= 0; y--)
+        {
+            double threshold = min + (max - min) * y / height;
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.Write($"{threshold,5:F1} │ ");
+            Console.ResetColor();
+
+            for (int x = 0; x < input.Length; x++)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.Write(input[x] >= threshold ? "█ " : "  ");
+            }
+            for (int x = 0; x < forecast.Length; x++)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write(forecast[x] >= threshold ? "★ " : "  ");
+            }
+            Console.WriteLine();
+        }
+        Console.ResetColor();
+        Console.WriteLine("      └─" + new string('─', (input.Length + forecast.Length) * 2));
+        double avgStep = (forecast.Last() - input.First()) / (input.Length + forecast.Length - 1);
+        string type = avgStep > 0.3 ? "ЗРОСТАЮЧА" : (avgStep < -0.3 ? "СПАДАЮЧА" : "СТАБІЛЬНА");
+        Console.WriteLine($"\n[АНАЛІЗ]: Тип: {type} | Середній крок: {avgStep:F2}");
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(new string('-', 45));
+        Console.ResetColor();
+    }
+}
+public static class IntelLog
+{
+    private static string logFile = "history.log";
+    public static void Log(double[] input, double[] output)
+    {
+        string entry = $"[{DateTime.Now:HH:mm:ss}] IN: {string.Join(",", input)} -> OUT: {string.Join(",", output.Select(x => Math.Round(x, 1)))}\n";
+        File.AppendAllText(logFile, entry);
+    }
+}
+public static class JewelryTrainer
+{
+    public static void Train(EncoderDecoderModel model, List<string> lines, string weightsFile)
+    {
+        var parameters = model.Parameters();
+        var bestSessionWeights = model.GetWeightsSnapshot();
+        Random rnd = new Random();
+
+        double initialLR = 0.01;
+        double momentum = 0.9;
+        int totalEpochs = 1000;
+        int redRowCounter = 0;
+
+        double bestLoss = double.MaxValue;
+        double[] velocity = new double[parameters.Count];
+        object lockObj = new object();
+
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.WriteLine($"\n[SOFT LANDING] Mode Active. Ядер: {Environment.ProcessorCount}. Сценаріїв: {lines.Count}");
+        Console.WriteLine("[!] КЕРУВАННЯ: [S]-Зберегти | [W]-Множинний Тест");
+        Console.ResetColor();
+
+        for (int epoch = 1; epoch <= totalEpochs; epoch++)
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.S)
+                {
+                    model.ApplyWeightsSnapshot(bestSessionWeights);
+                    model.SaveWeights(weightsFile);
+                    Console.WriteLine("\n[+] weights.csv оновлено. Вихід.");
+                    return;
+                }
+
+                if (key == ConsoleKey.W)
+                {
+                    RunMultiVariantTest(model, epoch, weightsFile, parameters, velocity, ref redRowCounter, initialLR, rnd);
+                }
+            }
+
+            double totalLoss = 0;
+            double lr = initialLR * 0.5 * (1 + Math.Cos(Math.PI * epoch / totalEpochs));
+            foreach (var p in parameters) p.Grad = 0;
+
+            Parallel.ForEach(lines, line => {
+                try
+                {
+                    var data = line.Split(',').Select(s => double.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+
+                    double rowScale = data.Select(Math.Abs).Max();
+                    if (rowScale < 1e-6) rowScale = 1.0;
+
+                    var input = data.Take(5).Select(v => v / rowScale).ToArray();
+                    var target = data.Skip(5).Take(5).Select(v => v / rowScale).ToArray();
+
+                    var preds = model.Forward(input, 5);
+                    Value loss = new Value(0);
+
+                    for (int i = 0; i < 5; i++)
+                    {
+                        var diff = preds[i] - new Value(target[i]);
+                        double weight = 1.0 + (i * 0.5);
+                        loss = loss + (diff * diff * new Value(weight));
+                    }
+
+                    loss.Backward();
+
+                    ContextMemory.Store(input, preds.Select(p => p.Grad).ToArray(), loss.Data);
+
+                    lock (lockObj) { totalLoss += loss.Data; }
+                }
+                catch { }
+            });
+
+            double avgLoss = totalLoss / lines.Count;
+
+            if (avgLoss > 1000.0)
+            {
+                ContextMemory.Clear();
+                model.ApplyWeightsSnapshot(bestSessionWeights);
+                for (int i = 0; i < velocity.Length; i++) velocity[i] = 0;
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine($"\n[!] КРИТИЧНИЙ ЗБІЙ (Loss: {avgLoss:F2}): Відкат.");
+                Console.ResetColor();
+                continue;
+            }
+
+            double gradSum = 0;
+            double velSum = 0;
+
+            for (int i = 0; i < parameters.Count; i++)
+            {
+                double grad = Math.Clamp(parameters[i].Grad / lines.Count, -1.0, 1.0);
+                velocity[i] = momentum * velocity[i] - lr * grad;
+                parameters[i].Data += velocity[i];
+
+                gradSum += Math.Abs(grad);
+                velSum += Math.Abs(velocity[i]);
+            }
+
+            double gradNorm = gradSum / parameters.Count;
+            double velNorm = velSum / parameters.Count;
+
+            if (avgLoss < bestLoss)
+            {
+                bestLoss = avgLoss; redRowCounter = 0;
+                bestSessionWeights = model.GetWeightsSnapshot();
+                if (epoch % 10 == 0) model.SaveWeights(weightsFile);
+
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write($"{lines.Count}/{lines.Count} ━ 🟢 Epoch {epoch:D3} ━ loss: {avgLoss:F6}");
+                Visualizer.PrintNeuralPulse(gradNorm, velNorm);
+                Console.WriteLine(" ━ RECORD SAVED");
+            }
+            else
+            {
+                redRowCounter++;
+                model.ApplyWeightsSnapshot(bestSessionWeights);
+                for (int i = 0; i < velocity.Length; i++) velocity[i] *= 0.2;
+
+                if (redRowCounter > 5)
+                {
+                    double shakeForce = (redRowCounter > 50) ? 0.15 : 0.03;
+                    for (int i = 0; i < parameters.Count; i++)
+                        parameters[i].Data += (rnd.NextDouble() * 2 - 1) * (lr * shakeForce);
+
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.Write($"{lines.Count}/{lines.Count} ━ ⚡ Epoch {epoch:D3} ━ loss: {avgLoss:F6}");
+                    Visualizer.PrintNeuralPulse(gradNorm, velNorm);
+                    Console.WriteLine($" ━ {(redRowCounter > 50 ? "[FINE TUNING]" : "[STABILIZING]")}");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.Write($"{lines.Count}/{lines.Count} ━ 🔴 Epoch {epoch:D3} ━ loss: {avgLoss:F6}");
+                    Visualizer.PrintNeuralPulse(gradNorm, velNorm);
+                    Console.WriteLine(" ━ [ROLLBACK]");
+                }
+            }
+            Console.ResetColor();
+        }
+    }
+    private static void RunMultiVariantTest(EncoderDecoderModel model, int epoch, string weightsFile, List<Value> parameters, double[] velocity, ref int redRowCounter, double initialLR, Random rnd)
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"\n\n{'═',-20} MULTI-VARIANT TEST (Епоха {epoch}) {'═',-20}");
+        Console.Write("[?] Введіть 5 чисел через пробіл: ");
+        Console.ResetColor();
+
+        string inputStr = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(inputStr))
+        {
+            try
+            {
+                double[] raw = inputStr.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                     .Select(s => double.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+                if (raw.Length == 5)
+                {
+                    double rowScale = raw.Select(Math.Abs).Max();
+                    if (rowScale < 1e-6) rowScale = 1.0;
+
+                    var variants = model.ForwardVariants(raw.Select(v => v / rowScale).ToArray(), 5, 3);
+
+                    for (int i = 0; i < variants.Count; i++)
+                    {
+                        double[] fore = variants[i].Select(v => v * rowScale).ToArray();
+                        Console.ForegroundColor = ConsoleColor.Magenta;
+                        Console.WriteLine($"\n--- ВАРІАНТ #{i + 1} ---");
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine(string.Join("  ", fore.Select(x => x.ToString("F2"))));
+                        Visualizer.PrintPrediction(raw, fore);
+                    }
+
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("\n[ КЕРУВАННЯ ]: [1,2,3]-Зберегти варіант | [F]-Шок | [Enter]-Далі");
+                    var choice = Console.ReadKey(true).Key;
+
+                    if (choice >= ConsoleKey.D1 && choice <= ConsoleKey.D3)
+                    {
+                        model.SaveWeights(weightsFile);
+                        Console.WriteLine($"\n[+] Варіант {choice - ConsoleKey.D0} обрано.");
+                    }
+                    else if (choice == ConsoleKey.F)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("\n[!] ШОК! Руйную зв'язки...");
+                        for (int i = 0; i < parameters.Count; i++)
+                        {
+                            parameters[i].Data += (rnd.NextDouble() * 2 - 1) * (initialLR * 2.5);
+                            velocity[i] = 0;
+                        }
+                        redRowCounter = 0;
+                    }
+                }
+            }
+            catch { }
+        }
+        Console.WriteLine("\n[!] Натисніть ENTER...");
+        Console.ReadLine();
+    }
+}
+public static class ContextMemory
+{
+    private static List<(double[] Input, double[] Grads)> _memoryStore = new List<(double[], double[])>();
+    private const int MaxMemorySlots = 1000;
+    private static object _lock = new object();
+    public static void Store(double[] input, double[] grads, double currentLoss)
+    {
+        if (currentLoss > 5.0) return;
+
+        lock (_lock)
+        {
+            if (_memoryStore.Count >= MaxMemorySlots) _memoryStore.RemoveAt(0);
+            _memoryStore.Add((input.ToArray(), grads.ToArray()));
+        }
+    }
+    public static double[] GetMemoryInfluence(double[] currentInput, int hiddenSize)
+    {
+        double[] intuition = new double[hiddenSize];
+        lock (_lock)
+        {
+            if (_memoryStore.Count == 0) return intuition;
+
+            var similar = _memoryStore
+                .Select(m => new { Entry = m, Sim = ComputeCosineSimilarity(currentInput, m.Input) })
+                .OrderByDescending(x => x.Sim)
+                .Take(3)
+                .Where(x => x.Sim > 0.85)
+                .ToList();
+
+            if (!similar.Any()) return intuition;
+
+            for (int i = 0; i < hiddenSize; i++)
+            {
+                intuition[i] = similar.Average(s => s.Entry.Grads.Length > i % s.Entry.Grads.Length
+                    ? s.Entry.Grads[i % s.Entry.Grads.Length]
+                    : 0) * 0.05;
+            }
+        }
+        return intuition;
+    }
+
+    public static int GetSize() => _memoryStore.Count;
+    public static void Clear() { lock (_lock) _memoryStore.Clear(); }
+    private static double ComputeCosineSimilarity(double[] a, double[] b)
+    {
+        double dot = 0, mA = 0, mB = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            dot += a[i] * b[i];
+            mA += a[i] * a[i];
+            mB += b[i] * b[i];
+        }
+        return dot / (Math.Sqrt(mA) * Math.Sqrt(mB) + 1e-10);
+    }
+}
+public static class DatasetGenerator
+{
+    public static void Generate(string filePath, int count = 1000)
+    {
+        var rnd = new Random();
+        var lines = new List<string>();
+
+        for (int i = 0; i < count; i++)
+        {
+            double[] full = new double[10];
+            int type = rnd.Next(5);
+
+            if (type == 0)
+            {
+                double start = rnd.Next(-50, 50);
+                double step = (rnd.NextDouble() * 20) - 10;
+                for (int j = 0; j < 10; j++) full[j] = start + j * step;
+            }
+            else if (type == 1)
+            {
+                full[0] = rnd.Next(1, 10);
+                full[1] = rnd.Next(1, 10);
+                for (int j = 2; j < 10; j++) full[j] = full[j - 1] + full[j - 2];
+            }
+            else if (type == 2)
+            {
+                double baseVal = rnd.Next(-10, 20);
+                double amp = rnd.Next(2, 15);
+                for (int j = 0; j < 10; j++) full[j] = baseVal + (j % 2 == 0 ? amp : -amp);
+            }
+            else if (type == 3)
+            {
+                double start = rnd.Next(1, 5);
+                double ratio = 1.1 + (rnd.NextDouble() * 0.4);
+                for (int j = 0; j < 10; j++) full[j] = start * Math.Pow(ratio, j);
+            }
+            else
+            {
+                double current = rnd.Next(-20, 20);
+                for (int j = 0; j < 10; j++)
+                {
+                    full[j] = current;
+                    current += (rnd.NextDouble() * 10) - 5;
+                }
+            }
+
+            lines.Add(string.Join(",", full.Select(v => v.ToString("F3", CultureInfo.InvariantCulture))));
+        }
+
+        File.WriteAllLines(filePath, lines);
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine($"\n[GENERATOR] Створено {count} сценаріїв (Linear, Fib, Osc, Geo, Walk).");
+        Console.ResetColor();
+    }
 }
