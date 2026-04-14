@@ -1248,26 +1248,94 @@ public static class AudioUtils
 }
 public static class ConfigUtils
 {
-    public static void SaveConfig<T>(string path, T config) => throw new NotImplementedException();
-    public static T LoadConfig<T>(string path) => throw new NotImplementedException();
-    public static string GetAppSetting(string key) => throw new NotImplementedException();
+    public static void SaveConfig<T>(string path, T config)
+    {
+        string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json);
+    }
+    public static T LoadConfig<T>(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return default(T);
+        }
+        string json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<T>(json);
+    }
+    public static string GetAppSetting(string key)
+    {
+        return Environment.GetEnvironmentVariable(key) ?? "Not Found";
+    }
 }
 public static class ConsoleVisuals
 {
-    public static void DrawProgressBar(int progress, int total, int width = 20) => throw new NotImplementedException();
-    public static void WriteInBox(string text) => throw new NotImplementedException();
-    public static void ClearLine(int row) => throw new NotImplementedException();
+    public static void DrawProgressBar(int progress, int total, int width = 20)
+    {
+        double percentage = (double)progress / total;
+        int filledWidth = (int)(percentage * width);
+
+        Console.Write("\r[");
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.Write(new string('█', filledWidth));
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.Write(new string('░', width - filledWidth));
+        Console.ResetColor();
+        Console.Write($"] {(percentage * 100):F0}%");
+    }
+    public static void WriteInBox(string text)
+    {
+        int length = text.Length;
+        string horizontal = new string('═', length + 2);
+
+        Console.WriteLine($"╔{horizontal}╗");
+        Console.WriteLine($"║ {text} ║");
+        Console.WriteLine($"╚{horizontal}╝");
+    }
+    public static void ClearLine(int row)
+    {
+        int currentCursorTop = Console.CursorTop;
+        Console.SetCursorPosition(0, row);
+        Console.Write(new string(' ', Console.WindowWidth));
+        Console.SetCursorPosition(0, currentCursorTop);
+    }
 }
 public static class AutomationUtils
 {
-    public static void SendKeyPress(short keyCode) => throw new NotImplementedException();
-    public static void SetMousePosition(int x, int y) => throw new NotImplementedException();
-    public static void MinimizeAll() => throw new NotImplementedException();
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+    [DllImport("user32.dll")]
+    private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")]
+    private static extern void SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+    public static void SendKeyPress(short keyCode)
+    {
+        keybd_event((byte)keyCode, 0, 0, 0); // Натиснути
+        keybd_event((byte)keyCode, 0, 2, 0); // Відпустити
+    }
+    public static void SetMousePosition(int x, int y)
+    {
+        SetCursorPos(x, y);
+    }
+    public static void MinimizeAll()
+    {
+        keybd_event(0x5B, 0, 0, 0); // Left Windows key
+        keybd_event(0x44, 0, 0, 0); // 'D' key
+        keybd_event(0x44, 0, 2, 0); // Release 'D'
+        keybd_event(0x5B, 0, 2, 0); // Release Win
+    }
 }
 public static class UnitConverter
 {
-    public static double KmHtoMs(double speed) => throw new NotImplementedException();
-    public static double ConvertCurrency(double amount, double rate) => throw new NotImplementedException();
+    public static double KmHtoMs(double speed)
+    {
+        return speed / 3.6;
+    }
+    public static double ConvertCurrency(double amount, double rate)
+    {
+        return amount * rate;
+    }
 }
 public class Value
 {
