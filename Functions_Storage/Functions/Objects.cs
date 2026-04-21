@@ -160,20 +160,56 @@ public class matrixN
     public matrixN Transpose() => new matrixN(AiUtils.Transpose(_data));
     public override string ToString() => $"matrixN[{Rows}x{Cols}]";
 }
-public class listN<T> : List<T>
+public class listN<T>
 {
-    public listN() : base() { }
+    private T[] _items;
+    private int _capacity;
+    public int Count { get; private set; }
+    public listN(int initialCapacity = 4)
+    {
+        _capacity = initialCapacity;
+        _items = new T[_capacity];
+    }
     public listN(IEnumerable<T> collection, bool shuffle = false)
-        : base(shuffle ? collection.OrderBy(x => Guid.NewGuid()) : collection) { }
-    public T RandomItem() {
-        if (this.Count == 0) return default;
-        return this[new Random().Next(0, this.Count)];
+    {
+        T[] temp = collection.ToArray();
+        if (shuffle) temp = temp.OrderBy(x => Guid.NewGuid()).ToArray();
+        _capacity = temp.Length > 0 ? temp.Length : 4;
+        _items = new T[_capacity];
+        foreach (var item in temp) Add(item);
     }
-    public listN<T> Shuffle() => new listN<T>(this, true);
-    public override string ToString() {
-        string content = string.Join(", ", this);
-        return $"{content}";
+    public T this[int index]
+    {
+        get => _items[index];
+        set => _items[index] = value;
     }
+    public void Add(T item)
+    {
+        if (Count == _capacity) Resize();
+        _items[Count++] = item;
+    }
+    private void Resize()
+    {
+        _capacity = _capacity == 0 ? 4 : _capacity * 2;
+        T[] newArray = new T[_capacity];
+        Array.Copy(_items, newArray, Count);
+        _items = newArray;
+    }
+    public T RandomItem() => Count == 0 ? default : _items[new Random().Next(0, Count)];
+    public listN<T> Shuffle() => new listN<T>(this.ToArray(), true);
+    public T[] ToArray()
+    {
+        T[] res = new T[Count];
+        Array.Copy(_items, res, Count);
+        return res;
+    }
+    public static listN<T> operator +(listN<T> a, listN<T> b)
+    {
+        var res = new listN<T>(a.ToArray());
+        foreach (var item in b.ToArray()) res.Add(item);
+        return res;
+    }
+    public override string ToString() => Count == 0 ? "[]" : string.Join(", ", ToArray());
     public static implicit operator listN<T>(T[] array) => new listN<T>(array, true);
 }
 public class stackN<T>
@@ -213,26 +249,48 @@ public class stackN<T>
         return s;
     }
 }
-public class hashSetN<T> : HashSet<T>
+public class hashSetN<T>
 {
-    public hashSetN() : base() { }
-    public hashSetN(IEnumerable<T> collection) : base(collection) { }
+    private List<T>[] _buckets;
+    private int _size = 101;
+    public int Count { get; private set; }
+    public hashSetN() {
+        _buckets = new List<T>[_size];
+    }
+    private int GetBucketIndex(T item) {
+        int hash = item.GetHashCode();
+        return Math.Abs(hash % _size);
+    }
+    public bool Add(T item) {
+        int index = GetBucketIndex(item);
+        if (_buckets[index] == null) _buckets[index] = new List<T>();
+        if (_buckets[index].Contains(item)) return false;
+        _buckets[index].Add(item);
+        Count++;
+        return true;
+    }
+    public bool Contains(T item) {
+        int index = GetBucketIndex(item);
+        return _buckets[index] != null && _buckets[index].Contains(item);
+    }
     public static hashSetN<T> operator +(hashSetN<T> s, T item) {
         s.Add(item);
         return s;
     }
-    public static hashSetN<T> operator +(hashSetN<T> a, hashSetN<T> b) {
-        var res = new hashSetN<T>(a);
-        res.UnionWith(b);
-        return res;
-    }
     public static hashSetN<T> operator -(hashSetN<T> s, T item) {
-        s.Remove(item);
+        int index = s.GetBucketIndex(item);
+        if (s._buckets[index] != null && s._buckets[index].Remove(item)) s.Count--;
         return s;
     }
     public override string ToString() {
-        if (Count == 0) return "{ }";
-        return $"{{ {string.Join(" | ", this.Take(10))} }}";
+        var allItems = new List<T>();
+        foreach (var bucket in _buckets)
+            if (bucket != null) allItems.AddRange(bucket);
+        return $"{{ {string.Join(" | ", allItems.Take(10))} }}";
     }
-    public static implicit operator hashSetN<T>(T[] array) => new hashSetN<T>(array);
+    public static implicit operator hashSetN<T>(T[] array) {
+        var set = new hashSetN<T>();
+        foreach (var item in array) set.Add(item);
+        return set;
+    }
 }
