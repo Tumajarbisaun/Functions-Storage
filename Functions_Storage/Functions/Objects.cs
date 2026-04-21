@@ -6,143 +6,128 @@ namespace Functions_Storage;
 
 public class stringN
 {
-    private string _value;
-    public stringN(string value) => _value = value ?? "";
-    public int Length => _value.Length;
-    public int Words => StringUtils.CountWords(_value);
-    public bool IsPalindrome => StringUtils.IsPalindrome(_value);
-    public bool IsNumeric => StringUtils.IsNumeric(_value);
-    public stringN Reverse() => new stringN(StringUtils.Reverse(_value));
-    public stringN Capitalize() => new stringN(StringUtils.Capitalize(_value));
-    public stringN Sanitize() => new stringN(StringUtils.Sanitize(_value));
-    public stringN Truncate(int max) => new stringN(StringUtils.Truncate(_value, max));
-    public override string ToString() => _value;
+    private char[] _v;
+    public int Length { get; private set; }
+
+    public stringN(string s)
+    {
+        if (s == null) { _v = new char[0]; Length = 0; return; }
+        Length = s.Length;
+        _v = new char[Length];
+        for (int i = 0; i < Length; i++) _v[i] = s[i];
+    }
+
+    public bool IsPalindrome
+    {
+        get
+        {
+            for (int i = 0; i < Length / 2; i++)
+                if (_v[i] != _v[Length - 1 - i]) return false;
+            return true;
+        }
+    }
+
+    public stringN Reverse()
+    {
+        char[] a = new char[Length];
+        for (int i = 0; i < Length; i++) a[i] = _v[Length - 1 - i];
+        return new stringN(new string(a));
+    }
+
+    public override string ToString() => new string(_v);
     public static implicit operator stringN(string s) => new stringN(s);
-    public static implicit operator string(stringN sn) => sn._value;
-    public static stringN operator +(stringN a, stringN b) => new stringN(a._value + b._value);
+    public static stringN operator +(stringN a, stringN b)
+    {
+        char[] res = new char[a.Length + b.Length];
+        for (int i = 0; i < a.Length; i++) res[i] = a._v[i];
+        for (int i = 0; i < b.Length; i++) res[a.Length + i] = b._v[i];
+        return new stringN(new string(res));
+    }
 }
 public class vectorN
 {
-    private double[] _data;
-    public vectorN(params double[] values) => _data = values;
-    public vectorN(IEnumerable<double> values) => _data = values.ToArray();
-    public double this[int index] {
-        get => _data[index];
-        set => _data[index] = value;
+    private double[] _d;
+    public int Size => _d.Length;
+    public vectorN(params double[] v) => _d = v;
+    public double this[int i] { get => _d[i]; set => _d[i] = value; }
+
+    public double Dot(vectorN o)
+    {
+        double r = 0;
+        for (int i = 0; i < Size; i++) r += _d[i] * o._d[i];
+        return r;
     }
-    public int Size => _data.Length;
-    public double Max => ArrayUtils.GetMax(_data);
-    public double Average => ArrayUtils.GetAverage(_data);
-    public vectorN Normalize() => new vectorN(AiUtils.Normalize(_data));
-    public vectorN Standardize() => new vectorN(AiUtils.Standardize(_data));
-    public vectorN Softmax() => new vectorN(AiUtils.Softmax(_data));
-    public double Dot(vectorN other) => AiUtils.DotProduct(this._data, other._data);
-    public double DistanceTo(vectorN other) => AiUtils.EuclideanDistance(this._data, other._data);
-    public static vectorN operator +(vectorN a, vectorN b) {
-        if (a.Size != b.Size) throw new ArgumentException("Розміри векторів мають збігатися");
-        return new vectorN(a._data.Zip(b._data, (x, y) => x + y));
+
+    public static vectorN operator +(vectorN a, vectorN b)
+    {
+        double[] r = new double[a.Size];
+        for (int i = 0; i < a.Size; i++) r[i] = a[i] + b[i];
+        return new vectorN(r);
     }
-    public static vectorN operator *(vectorN a, double scalar)
-        => new vectorN(a._data.Select(x => x * scalar));
-    public double[] ToArray() => (double[])_data.Clone();
-    public override string ToString() => $"vectorN[{Size}] {{ {string.Join(", ", _data.Select(d => d.ToString("F2")))} }}";
+
+    public static vectorN operator *(vectorN a, double s)
+    {
+        double[] r = new double[a.Size];
+        for (int i = 0; i < a.Size; i++) r[i] = a[i] * s;
+        return new vectorN(r);
+    }
+
+    public override string ToString()
+    {
+        string s = "vec{";
+        for (int i = 0; i < Size; i++) s += _d[i].ToString("F2") + (i == Size - 1 ? "" : ",");
+        return s + "}";
+    }
+}
+public class ifN
+{
+    private bool _c, _e = false;
+    private ifN(bool c) => _c = c;
+    public static ifN That(bool c) => new ifN(c);
+    public ifN Then(Action a) { if (_c) { a(); _e = true; } return this; }
+    public void Else(Action a) { if (!_c && !_e) a(); }
+}
+public static class forN
+{
+    public static void Between(int s, int e, Action<int> a) { for (int i = s; i < e; i++) a(i); }
+    public static void Each<T>(T[] items, Action<T> a) { for (int i = 0; i < items.Length; i++) a(items[i]); }
+}
+public static class whileN
+{
+    public static void Cycle(Func<bool> c, Action a) { while (c()) a(); }
 }
 public class fileN
 {
     public string Path { get; }
-    public fileN(string path) => Path = path;
+    public fileN(string p) => Path = p;
     public bool Exists => File.Exists(Path);
-    public string Size => FileUtils.GetFriendlyFileSize(Path);
-    public string Hash => FileUtils.GetFileHash(Path);
-    public bool IsLocked => FileUtils.IsFileLocked(Path);
-    public DateTime LastModified => FileUtils.GetLastModified(Path);
-    public void Write(string content) => FileUtils.SmartWrite(Path, content);
     public string Read() => File.ReadAllText(Path);
-    public void Backup() => FileUtils.BackupFile(Path);
-    public void Delete() => File.Delete(Path);
-    public void Rename(string newPattern, string replacement) => FileUtils.BatchRename(System.IO.Path.GetDirectoryName(Path), newPattern, replacement);
-    public stringN ToSmartString() => new stringN(Read());
-    public override string ToString() => $"{System.IO.Path.GetFileName(Path)} ({Size})";
-}
-public class timeN
-{
-    private DateTime _dt;
-    public timeN(DateTime dt) => _dt = dt;
-    public static timeN Now => new timeN(DateTime.Now);
-    public bool IsWeekend => TimeUtils.IsWeekend(_dt);
-    public bool IsLeap => TimeUtils.IsLeapYear(_dt.Year);
-    public string Relative => TimeUtils.GetTimeAgo(_dt); // "5 minutes ago"
-    public long Unix => TimeUtils.DateTimeToUnixTimestamp(_dt);
-    public int Quarter => TimeUtils.GetQuarter(_dt);
-    public timeN Next(DayOfWeek day) => new timeN(TimeUtils.GetNextOccurrence(day));
-    public override string ToString() => _dt.ToString("yyyy-MM-dd HH:mm:ss");
-    public static implicit operator DateTime(timeN tn) => tn._dt;
-    public static implicit operator timeN(DateTime dt) => new timeN(dt);
+    public void Write(string c) => File.WriteAllText(Path, c);
 }
 public class hostN
 {
-    public string Address { get; }
-    public hostN(string address) => Address = address;
-    public bool IsOnline => NetworkUtils.PingHost(Address);
-    public string LocalIp => NetworkUtils.GetLocalIpAddress();
-    public string MacAddress => NetworkUtils.GetMacAddress();
-    public long Speed => NetworkUtils.GetNetworkSpeed();
-    public bool IsPortOpen(int port) => NetworkUtils.IsPortOpen(Address, port, 500);
-    public bool IsReachable => NetworkUtils.IsUrlReachable(Address);
-    public void Wake() => NetworkUtils.WakeOnLan(Address);
-    public override string ToString() => $"{Address} [{(IsOnline ? "ONLINE" : "OFFLINE")}]";
-}
-public class boolN
-{
-    private bool _state;
-    public boolN(bool state) => _state = state;
-    public string Status => _state ? "ACTIVE" : "DISABLED";
-    public string Icon => _state ? "✅" : "❌";
-    public boolN Toggle() { _state = !_state; return this; }
-    public override string ToString() => Status;
-    public static implicit operator bool(boolN bn) => bn._state;
-    public static implicit operator boolN(bool b) => new boolN(b);
-}
-public class ifN
-{
-    private bool _condition;
-    private bool _executed = false;
-    private ifN(bool condition) => _condition = condition;
-    public static ifN That(bool condition) => new ifN(condition);
-    public ifN Then(Action action) {
-        if (_condition) {
-            action();
-            _executed = true;
-        }
-        return this;
-    }
-    public void Else(Action action) {
-        if (!_condition && !_executed) {
-            action();
-        }
-    }
-}
-public static class forN
-{
-    public static void Between(int start, int end, Action<int> action) {
-        for (int i = start; i < end; i++) {
-            action(i);
-        }
-    }
-    public static void Each<T>(T[] items, Action<T> action)
+    public string Addr { get; }
+    public hostN(string a) => Addr = a;
+    public bool IsOnline
     {
-        foreach (var item in items) {
-            action(item);
+        get
+        {
+            try
+            {
+                using (var p = new System.Net.NetworkInformation.Ping())
+                    return p.Send(Addr, 500).Status == System.Net.NetworkInformation.IPStatus.Success;
+            }
+            catch { return false; }
         }
     }
 }
-public static class whileN
+public class timeN
 {
-    public static void Cycle(Func<bool> condition, Action action) {
-        while (condition()) {
-            action();
-        }
-    }
+    private DateTime _d;
+    public timeN(DateTime d) => _d = d;
+    public static timeN Now => new timeN(DateTime.Now);
+    public long Unix => ((DateTimeOffset)_d).ToUnixTimeSeconds();
+    public override string ToString() => _d.ToString("yyyy-MM-dd HH:mm:ss");
 }
 public class matrixN
 {
@@ -163,134 +148,118 @@ public class matrixN
 public class listN<T>
 {
     private T[] _items;
-    private int _capacity;
+    private int _cap;
     public int Count { get; private set; }
-    public listN(int initialCapacity = 4)
+    public listN(int c = 4) { _cap = c; _items = new T[_cap]; }
+    public listN(IEnumerable<T> col, bool shuf = false)
     {
-        _capacity = initialCapacity;
-        _items = new T[_capacity];
+        T[] t = col.ToArray();
+        if (shuf) t = t.OrderBy(x => Guid.NewGuid()).ToArray();
+        _cap = t.Length > 0 ? t.Length : 4; _items = new T[_cap];
+        foreach (var x in t) Add(x);
     }
-    public listN(IEnumerable<T> collection, bool shuffle = false)
-    {
-        T[] temp = collection.ToArray();
-        if (shuffle) temp = temp.OrderBy(x => Guid.NewGuid()).ToArray();
-        _capacity = temp.Length > 0 ? temp.Length : 4;
-        _items = new T[_capacity];
-        foreach (var item in temp) Add(item);
-    }
-    public T this[int index]
-    {
-        get => _items[index];
-        set => _items[index] = value;
-    }
-    public void Add(T item)
-    {
-        if (Count == _capacity) Resize();
-        _items[Count++] = item;
-    }
-    private void Resize()
-    {
-        _capacity = _capacity == 0 ? 4 : _capacity * 2;
-        T[] newArray = new T[_capacity];
-        Array.Copy(_items, newArray, Count);
-        _items = newArray;
-    }
+    public T this[int i] { get => _items[i]; set => _items[i] = value; }
+    public void Add(T x) { if (Count == _cap) Resize(); _items[Count++] = x; }
+    private void Resize() { _cap = _cap == 0 ? 4 : _cap * 2; T[] n = new T[_cap]; Array.Copy(_items, n, Count); _items = n; }
     public T RandomItem() => Count == 0 ? default : _items[new Random().Next(0, Count)];
-    public listN<T> Shuffle() => new listN<T>(this.ToArray(), true);
-    public T[] ToArray()
-    {
-        T[] res = new T[Count];
-        Array.Copy(_items, res, Count);
-        return res;
-    }
+    public T[] ToArray() { T[] r = new T[Count]; Array.Copy(_items, r, Count); return r; }
     public static listN<T> operator +(listN<T> a, listN<T> b)
     {
-        var res = new listN<T>(a.ToArray());
-        foreach (var item in b.ToArray()) res.Add(item);
-        return res;
+        var r = new listN<T>(a.ToArray()); foreach (var x in b.ToArray()) r.Add(x); return r;
     }
     public override string ToString() => Count == 0 ? "[]" : string.Join(", ", ToArray());
-    public static implicit operator listN<T>(T[] array) => new listN<T>(array, true);
+    public static implicit operator listN<T>(T[] a) => new listN<T>(a, true);
 }
 public class stackN<T>
 {
-    private List<T> _items = new List<T>();
-    public int Count => _items.Count;
-    public bool IsEmpty => _items.Count == 0;
-    public void Push(T item) => _items.Add(item);
-    public T Pop() {
-        if (IsEmpty) return default;
-        T item = _items[_items.Count - 1];
-        _items.RemoveAt(_items.Count - 1);
-        return item;
-    }
-    public T Peek() => IsEmpty ? default : _items[_items.Count - 1];
-    public void Clear() => _items.Clear();
-    public static stackN<T> operator +(stackN<T> s, T item) {
-        s.Push(item);
-        return s;
-    }
-    public static stackN<T> operator --(stackN<T> s) {
-        s.Pop();
-        return s;
-    }
+    private T[] _items;
+    private int _cap;
+    public int Count { get; private set; }
+    public bool IsEmpty => Count == 0;
+    public stackN(int c = 4) { _cap = c; _items = new T[_cap]; }
+    public void Push(T x) { if (Count == _cap) Resize(); _items[Count++] = x; }
+    public T Pop() { if (IsEmpty) return default; T x = _items[--Count]; _items[Count] = default; return x; }
+    public T Peek() => IsEmpty ? default : _items[Count - 1];
+    private void Resize() { _cap *= 2; T[] n = new T[_cap]; Array.Copy(_items, n, Count); _items = n; }
+    public static stackN<T> operator +(stackN<T> s, T x) { s.Push(x); return s; }
+    public static stackN<T> operator --(stackN<T> s) { s.Pop(); return s; }
     public static T operator ~(stackN<T> s) => s.Pop();
-    public override string ToString() {
-        if (IsEmpty) return "[ Стек порожній ]";
-        var display = new List<T>(_items);
-        display.Reverse();
-        string content = string.Join(" -> ", display.Take(5));
-        string suffix = display.Count > 5 ? " -> ..." : "";
-        return $"[ {content}{suffix} ]";
+    public override string ToString()
+    {
+        if (IsEmpty) return "[]"; T[] r = new T[Count]; Array.Copy(_items, r, Count); Array.Reverse(r);
+        return $"[{string.Join(" -> ", r.Take(5))}{(Count > 5 ? " -> ..." : "")}]";
     }
-    public static implicit operator stackN<T>(T[] array) {
-        var s = new stackN<T>();
-        foreach (var item in array) s.Push(item);
-        return s;
-    }
+    public static implicit operator stackN<T>(T[] a) { var s = new stackN<T>(a.Length); foreach (var x in a) s.Push(x); return s; }
 }
 public class hashSetN<T>
 {
-    private List<T>[] _buckets;
-    private int _size = 101;
+    private T[][] _buckets;
+    private int[] _counts;
+    private int _sz = 101;
     public int Count { get; private set; }
-    public hashSetN() {
-        _buckets = new List<T>[_size];
+    public hashSetN() { _buckets = new T[_sz][]; _counts = new int[_sz]; }
+    private int GetIdx(T x) => Math.Abs(x.GetHashCode() % _sz);
+    public bool Add(T x) {
+        int i = GetIdx(x); if (_buckets[i] == null) _buckets[i] = new T[2];
+        for (int j = 0; j < _counts[i]; j++) if (_buckets[i][j].Equals(x)) return false;
+        if (_counts[i] == _buckets[i].Length) { T[] n = new T[_counts[i] * 2]; Array.Copy(_buckets[i], n, _counts[i]); _buckets[i] = n; }
+        _buckets[i][_counts[i]++] = x; Count++; return true;
     }
-    private int GetBucketIndex(T item) {
-        int hash = item.GetHashCode();
-        return Math.Abs(hash % _size);
+    public bool Remove(T x) {
+        int i = GetIdx(x); if (_buckets[i] == null) return false;
+        for (int j = 0; j < _counts[i]; j++) if (_buckets[i][j].Equals(x)) {
+                for (int k = j; k < _counts[i] - 1; k++) _buckets[i][k] = _buckets[i][k + 1];
+                _buckets[i][--_counts[i]] = default; Count--; return true;
+            }
+        return false;
     }
-    public bool Add(T item) {
-        int index = GetBucketIndex(item);
-        if (_buckets[index] == null) _buckets[index] = new List<T>();
-        if (_buckets[index].Contains(item)) return false;
-        _buckets[index].Add(item);
-        Count++;
-        return true;
-    }
-    public bool Contains(T item) {
-        int index = GetBucketIndex(item);
-        return _buckets[index] != null && _buckets[index].Contains(item);
-    }
-    public static hashSetN<T> operator +(hashSetN<T> s, T item) {
-        s.Add(item);
-        return s;
-    }
-    public static hashSetN<T> operator -(hashSetN<T> s, T item) {
-        int index = s.GetBucketIndex(item);
-        if (s._buckets[index] != null && s._buckets[index].Remove(item)) s.Count--;
-        return s;
-    }
+    public static hashSetN<T> operator +(hashSetN<T> s, T x) { s.Add(x); return s; }
+    public static hashSetN<T> operator -(hashSetN<T> s, T x) { s.Remove(x); return s; }
     public override string ToString() {
-        var allItems = new List<T>();
-        foreach (var bucket in _buckets)
-            if (bucket != null) allItems.AddRange(bucket);
-        return $"{{ {string.Join(" | ", allItems.Take(10))} }}";
+        if (Count == 0) return "{}"; var r = new T[Math.Min(Count, 10)]; int k = 0;
+        for (int i = 0; i < _sz && k < r.Length; i++) for (int j = 0; j < _counts[i] && k < r.Length; j++) r[k++] = _buckets[i][j];
+        return $"{{ {string.Join(" | ", r)} }}";
     }
-    public static implicit operator hashSetN<T>(T[] array) {
-        var set = new hashSetN<T>();
-        foreach (var item in array) set.Add(item);
-        return set;
+    public static implicit operator hashSetN<T>(T[] a) { var s = new hashSetN<T>(); foreach (var x in a) s.Add(x); return s; }
+}
+public class queueN<T>
+{
+    private T[] _items;
+    private int _head, _tail, _cap;
+    public int Count { get; private set; }
+    public bool IsEmpty => Count == 0;
+    public queueN(int c = 4) { _cap = c; _items = new T[_cap]; }
+    public void Enqueue(T x) {
+        if (Count == _cap) Resize();
+        _items[_tail] = x;
+        _tail = (_tail + 1) % _cap;
+        Count++;
+    }
+    public T Dequeue() {
+        if (IsEmpty) return default;
+        T x = _items[_head];
+        _items[_head] = default;
+        _head = (_head + 1) % _cap;
+        Count--;
+        return x;
+    }
+    public T Peek() => IsEmpty ? default : _items[_head];
+    private void Resize() {
+        T[] n = new T[_cap * 2];
+        for (int i = 0; i < Count; i++) n[i] = _items[(_head + i) % _cap];
+        _items = n; _head = 0; _tail = Count; _cap *= 2;
+    }
+    public static queueN<T> operator +(queueN<T> q, T x) { q.Enqueue(x); return q; }
+    public static T operator ~(queueN<T> q) => q.Dequeue();
+    public override string ToString() {
+        if (IsEmpty) return "[]";
+        var r = new T[Math.Min(Count, 5)];
+        for (int i = 0; i < r.Length; i++) r[i] = _items[(_head + i) % _cap];
+        return $"[{string.Join(" <- ", r)}{(Count > 5 ? " <- ..." : "")}]";
+    }
+    public static implicit operator queueN<T>(T[] a) {
+        var q = new queueN<T>(a.Length);
+        foreach (var x in a) q.Enqueue(x);
+        return q;
     }
 }

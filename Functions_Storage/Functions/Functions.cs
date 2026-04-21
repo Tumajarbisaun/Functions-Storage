@@ -1476,14 +1476,10 @@ public static class AiUtils
     {
         var topo = new List<T>();
         var visited = new HashSet<T>();
-
-        void BuildTopo(T v)
-        {
-            if (!visited.Contains(v))
-            {
+        void BuildTopo(T v) {
+            if (!visited.Contains(v)) {
                 visited.Add(v);
-                foreach (var child in getChildren(v))
-                {
+                foreach (var child in getChildren(v)) {
                     if (child != null) BuildTopo(child);
                 }
                 topo.Add(v);
@@ -1528,9 +1524,7 @@ public static class AiUtils
 
         for (int j = 0; j < hSize; j++)
         {
-            // Стан комірки: c_t = f_t * c_{t-1} + i_t * c_tilde_t
             c_next[j] = (f[j] * c_prev[j]) + (i[j] * c_tilde[j]);
-            // Прихований стан: h_t = o_t * tanh(c_t)
             h_next[j] = o[j] * Tanh(c_next[j]);
         }
 
