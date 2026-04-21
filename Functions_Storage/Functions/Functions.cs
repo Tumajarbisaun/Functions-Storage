@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
@@ -12,6 +13,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Functions_Storage;
 public static class ArrayUtils
@@ -972,26 +974,240 @@ public static class SystemUtils
 }
 public static class ImageUtils
 {
-    public static void ResizeImage(string path, int width, int height) => throw new NotImplementedException();
-    public static string GetImageFormat(string path) => throw new NotImplementedException();
-    public static void ApplyGrayscale(string path) => throw new NotImplementedException();
-    public static void ApplyBlur(string path, int radius) => throw new NotImplementedException();
-    public static void ApplySepia(string path) => throw new NotImplementedException();
-    public static void RotateImage(string path, float degrees) => throw new NotImplementedException();
-    public static void FlipImage(string path, bool horizontal, bool vertical) => throw new NotImplementedException();
-    public static void CropImage(string path, int x, int y, int width, int height) => throw new NotImplementedException();
-    public static void AddWatermark(string path, string text, int x, int y) => throw new NotImplementedException();
-    public static void CompressImage(string path, int quality) => throw new NotImplementedException();
-    public static void ConvertFormat(string sourcePath, string targetFormat) => throw new NotImplementedException();
-    public static (int width, int height) GetImageDimensions(string path) => throw new NotImplementedException();
-    public static void AdjustBrightness(string path, int level) => throw new NotImplementedException();
-    public static void AdjustContrast(string path, int level) => throw new NotImplementedException();
-    public static void InvertColors(string path) => throw new NotImplementedException();
-    public static string GetDominantColor(string path) => throw new NotImplementedException();
-    public static void RemoveExifData(string path) => throw new NotImplementedException();
+    public static void ResizeImage(string path, int width, int height)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            using (System.Drawing.Bitmap resized = new System.Drawing.Bitmap(image, width, height)) {
+                string tempPath = path + ".tmp";
+                resized.Save(tempPath, image.RawFormat);
+                image.Dispose();
+                System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
+        }
+    }
+    public static string GetImageFormat(string path)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            return image.RawFormat.ToString();
+        }
+    }
+    public static void ApplyGrayscale(string path)
+    {
+        ProcessPixels(path, (c) => {
+            int gray = (int)(c.R * 0.3 + c.G * 0.59 + c.B * 0.11);
+            return System.Drawing.Color.FromArgb(gray, gray, gray);
+        });
+    }
+    public static void ApplySepia(string path)
+    {
+        ProcessPixels(path, (c) => {
+            int r = (int)((c.R * 0.393) + (c.G * 0.769) + (c.B * 0.189));
+            int g = (int)((c.R * 0.349) + (c.G * 0.686) + (c.B * 0.168));
+            int b = (int)((c.R * 0.272) + (c.G * 0.534) + (c.B * 0.131));
+            return System.Drawing.Color.FromArgb(Math.Min(255, r), Math.Min(255, g), Math.Min(255, b));
+        });
+    }
+    public static void RotateImage(string path, float degrees)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(image);
+            if (degrees == 90) bmp.RotateFlip(System.Drawing.RotateFlipType.Rotate90FlipNone);
+            else if (degrees == 180) bmp.RotateFlip(System.Drawing.RotateFlipType.Rotate180FlipNone);
+            else if (degrees == 270) bmp.RotateFlip(System.Drawing.RotateFlipType.Rotate270FlipNone);
+            string tempPath = path + ".tmp";
+            bmp.Save(tempPath, image.RawFormat);
+            image.Dispose();
+            System.IO.File.Delete(path);
+            System.IO.File.Move(tempPath, path);
+        }
+    }
+    public static void FlipImage(string path, bool horizontal, bool vertical)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(image);
+            if (horizontal && vertical) bmp.RotateFlip(System.Drawing.RotateFlipType.RotateNoneFlipXY);
+            else if (horizontal) bmp.RotateFlip(System.Drawing.RotateFlipType.RotateNoneFlipX);
+            else if (vertical) bmp.RotateFlip(System.Drawing.RotateFlipType.RotateNoneFlipY);
+            string tempPath = path + ".tmp";
+            bmp.Save(tempPath, image.RawFormat);
+            image.Dispose();
+            System.IO.File.Delete(path);
+            System.IO.File.Move(tempPath, path);
+        }
+    }
+    public static void CropImage(string path, int x, int y, int width, int height)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(image);
+            System.Drawing.Rectangle cropArea = new System.Drawing.Rectangle(x, y, width, height);
+            using (System.Drawing.Bitmap cropped = bmp.Clone(cropArea, bmp.PixelFormat)) {
+                string tempPath = path + ".tmp";
+                cropped.Save(tempPath, image.RawFormat);
+                image.Dispose();
+                System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
+        }
+    }
+    public static void AddWatermark(string path, string text, int x, int y)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            using (System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(image)) {
+                using (System.Drawing.Graphics g = System.Drawing.Graphics.FromImage(bmp)) {
+                    using (System.Drawing.Font font = new System.Drawing.Font("Arial", 20, System.Drawing.FontStyle.Bold)) {
+                        g.DrawString(text, font, System.Drawing.Brushes.White, new System.Drawing.PointF(x, y));
+                    }
+                }
+                string tempPath = path + ".tmp";
+                bmp.Save(tempPath, image.RawFormat);
+                image.Dispose();
+                System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
+        }
+    }
+    public static void ConvertFormat(string sourcePath, string targetFormat)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(sourcePath)) {
+            string newPath = System.IO.Path.ChangeExtension(sourcePath, targetFormat.ToLower());
+            System.Drawing.Imaging.ImageFormat format = targetFormat.ToLower() switch {
+                "png" => System.Drawing.Imaging.ImageFormat.Png,
+                "gif" => System.Drawing.Imaging.ImageFormat.Gif,
+                "bmp" => System.Drawing.Imaging.ImageFormat.Bmp,
+                _ => System.Drawing.Imaging.ImageFormat.Jpeg
+            };
+            image.Save(newPath, format);
+        }
+    }
+    public static (int width, int height) GetImageDimensions(string path)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            return (image.Width, image.Height);
+        }
+    }
+    public static void AdjustBrightness(string path, int level)
+    {
+        ProcessPixels(path, (c) => {
+            int r = Math.Clamp(c.R + level, 0, 255);
+            int g = Math.Clamp(c.G + level, 0, 255);
+            int b = Math.Clamp(c.B + level, 0, 255);
+            return System.Drawing.Color.FromArgb(r, g, b);
+        });
+    }
+    public static void InvertColors(string path)
+    {
+        ProcessPixels(path, (c) => System.Drawing.Color.FromArgb(255 - c.R, 255 - c.G, 255 - c.B));
+    }
+    public static string GetDominantColor(string path)
+    {
+        using (System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(path)) {
+            long r = 0, g = 0, b = 0;
+            int total = bmp.Width * bmp.Height;
+            for (int x = 0; x < bmp.Width; x++) {
+                for (int y = 0; y < bmp.Height; y++) {
+                    System.Drawing.Color clr = bmp.GetPixel(x, y);
+                    r += clr.R; g += clr.G; b += clr.B;
+                }
+            }
+            return $"#{r / total:X2}{g / total:X2}{b / total:X2}";
+        }
+    }
+    public static void RemoveExifData(string path)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            using (System.Drawing.Bitmap clean = new System.Drawing.Bitmap(image)) {
+                string tempPath = path + ".tmp";
+                clean.Save(tempPath, image.RawFormat);
+                image.Dispose();
+                System.IO.File.Delete(path);
+                System.IO.File.Move(tempPath, path);
+            }
+        }
+    }
+    private static void ProcessPixels(string path, Func<System.Drawing.Color, System.Drawing.Color> transformation)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(image);
+            for (int x = 0; x < bmp.Width; x++) {
+                for (int y = 0; y < bmp.Height; y++) {
+                    bmp.SetPixel(x, y, transformation(bmp.GetPixel(x, y)));
+                }
+            }
+            string tempPath = path + ".tmp";
+            bmp.Save(tempPath, image.RawFormat);
+            image.Dispose();
+            System.IO.File.Delete(path);
+            System.IO.File.Move(tempPath, path);
+        }
+    }
+    public static void ApplyContrast(string path, int level)
+    {
+        double contrast = Math.Pow((100.0 + level) / 100.0, 2);
+        ProcessPixels(path, (c) => {
+            double r = ((((c.R / 255.0) - 0.5) * contrast) + 0.5) * 255.0;
+            double g = ((((c.G / 255.0) - 0.5) * contrast) + 0.5) * 255.0;
+            double b = ((((c.B / 255.0) - 0.5) * contrast) + 0.5) * 255.0;
+            return System.Drawing.Color.FromArgb(
+                Math.Clamp((int)r, 0, 255),
+                Math.Clamp((int)g, 0, 255),
+                Math.Clamp((int)b, 0, 255)
+            );
+        });
+    }
+    public static void CompressImage(string path, int quality)
+    {
+        using (System.Drawing.Image image = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Imaging.ImageCodecInfo jpgEncoder = GetEncoder(System.Drawing.Imaging.ImageFormat.Jpeg);
+            System.Drawing.Imaging.Encoder myEncoder = System.Drawing.Imaging.Encoder.Quality;
+            System.Drawing.Imaging.EncoderParameters myEncoderParameters = new System.Drawing.Imaging.EncoderParameters(1);
+            myEncoderParameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(myEncoder, (long)quality);
+            string tempPath = path + ".tmp";
+            image.Save(tempPath, jpgEncoder, myEncoderParameters);
+            image.Dispose();
+            System.IO.File.Delete(path);
+            System.IO.File.Move(tempPath, path);
+        }
+    }
+    public static void ApplyBlur(string path, int radius)
+    {
+        using (System.Drawing.Image img = System.Drawing.Image.FromFile(path)) {
+            System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(img);
+            System.Drawing.Bitmap blurred = new System.Drawing.Bitmap(bmp.Width, bmp.Height);
+            for (int x = 0; x < bmp.Width; x++) {
+                for (int y = 0; y < bmp.Height; y++) {
+                    int avgR = 0, avgG = 0, avgB = 0, count = 0;
+                    for (int kx = -radius; kx <= radius; kx++) {
+                        for (int ky = -radius; ky <= radius; ky++) {
+                            int nx = x + kx;
+                            int ny = y + ky;
+                            if (nx >= 0 && nx < bmp.Width && ny >= 0 && ny < bmp.Height) {
+                                System.Drawing.Color pixel = bmp.GetPixel(nx, ny);
+                                avgR += pixel.R; avgG += pixel.G; avgB += pixel.B;
+                                count++;
+                            }
+                        }
+                    }
+                    blurred.SetPixel(x, y, System.Drawing.Color.FromArgb(avgR / count, avgG / count, avgB / count));
+                }
+            }
+            img.Dispose();
+            System.IO.File.Delete(path);
+            blurred.Save(path, System.Drawing.Imaging.ImageFormat.Jpeg);
+        }
+    }
+    private static System.Drawing.Imaging.ImageCodecInfo GetEncoder(System.Drawing.Imaging.ImageFormat format)
+    {
+        System.Drawing.Imaging.ImageCodecInfo[] codecs = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders();
+        foreach (System.Drawing.Imaging.ImageCodecInfo codec in codecs) {
+            if (codec.FormatID == format.Guid) return codec;
+        }
+        return null;
+    }
 }
 public static class AiUtils
 {
+    public static double Exp(double x) => Math.Exp(x);
     public static double Sigmoid(double x)
     {
         return 1.0 / (1.0 + Math.Exp(-x));
@@ -1176,6 +1392,194 @@ public static class AiUtils
         }
         return neighborIndices;
     }
+    public static double[] LayerNormalization(double[] data, double epsilon = 1e-8)
+    {
+        double mean = data.Average();
+        double variance = data.Select(v => Math.Pow(v - mean, 2)).Average();
+        double stdDev = Math.Sqrt(variance + epsilon);
+        double[] normalized = new double[data.Length];
+        for (int i = 0; i < data.Length; i++) {
+            normalized[i] = (data[i] - mean) / stdDev;
+        }
+        return normalized;
+    }
+    public static double[] ApplyDropout(double[] data, double dropoutRate)
+    {
+        Random rnd = new Random();
+        double[] result = new double[data.Length];
+        double scale = 1.0 / (1.0 - dropoutRate);
+        for (int i = 0; i < data.Length; i++) {
+            if (rnd.NextDouble() > dropoutRate) {
+                result[i] = data[i] * scale;
+            }
+            else {
+                result[i] = 0;
+            }
+        }
+        return result;
+    }
+    public static double[] GenerateHeInitialization(int inputNodes)
+    {
+        Random rnd = new Random();
+        double stdDev = Math.Sqrt(2.0 / inputNodes);
+        double[] weights = new double[inputNodes];
+        for (int i = 0; i < inputNodes; i++) {
+            double u1 = 1.0 - rnd.NextDouble();
+            double u2 = 1.0 - rnd.NextDouble();
+            double randStdNormal = Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Sin(2.0 * Math.PI * u2);
+            weights[i] = randStdNormal * stdDev;
+        }
+        return weights;
+    }
+    public static double CalculateCosineSimilarity(double[] vectorA, double[] vectorB)
+    {
+        if (vectorA.Length != vectorB.Length) throw new ArgumentException("Length mismatch");
+        double dotProduct = 0;
+        double normA = 0;
+        double normB = 0;
+        for (int i = 0; i < vectorA.Length; i++) {
+            dotProduct += vectorA[i] * vectorB[i];
+            normA += vectorA[i] * vectorA[i];
+            normB += vectorB[i] * vectorB[i];
+        }
+        double denominator = Math.Sqrt(normA) * Math.Sqrt(normB);
+        if (denominator < 1e-10) return 0;
+
+        return dotProduct / denominator;
+    }
+    public static double SigmoidDerivative(double sigmoidResult)
+    {
+        return sigmoidResult * (1.0 - sigmoidResult);
+    }
+    public static double TanhDerivative(double tanhResult)
+    {
+        return 1.0 - Math.Pow(tanhResult, 2);
+    }
+    public static double[] AddArrays(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) throw new ArgumentException("Розміри мають збігатися");
+        return a.Zip(b, (x, y) => x + y).ToArray();
+    }
+    public static double[] MultiplyArrays(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) throw new ArgumentException("Розміри мають збігатися");
+        return a.Zip(b, (x, y) => x * y).ToArray();
+    }
+    public static double[] Softmax(double[] values)
+    {
+        double maxVal = values.Max();
+        double[] expValues = values.Select(v => Math.Exp(v - maxVal)).ToArray();
+        double sum = expValues.Sum();
+        return expValues.Select(v => v / sum).ToArray();
+    }
+    public static List<T> TopologicalSort<T>(T root, Func<T, IEnumerable<T>> getChildren)
+    {
+        var topo = new List<T>();
+        var visited = new HashSet<T>();
+
+        void BuildTopo(T v)
+        {
+            if (!visited.Contains(v))
+            {
+                visited.Add(v);
+                foreach (var child in getChildren(v))
+                {
+                    if (child != null) BuildTopo(child);
+                }
+                topo.Add(v);
+            }
+        }
+
+        BuildTopo(root);
+        topo.Reverse();
+        return topo;
+    }
+    public static double[] CreateRandomWeights(int rows, int cols)
+    {
+        Random rnd = new Random();
+        double scale = Math.Sqrt(2.0 / (rows + cols));
+        double[] weights = new double[rows * cols];
+        for (int i = 0; i < weights.Length; i++) {
+            weights[i] = (rnd.NextDouble() * 2 - 1) * scale;
+        }
+        return weights;
+    }
+    public static double[] ComputeGate(double[] x, double[] h, double[] W, double[] U, double[] b, int hSize, bool isSigmoid)
+    {
+        int inSize = x.Length;
+        double[] res = new double[hSize];
+        for (int i = 0; i < hSize; i++) {
+            double sum = b[i];
+            for (int j = 0; j < inSize; j++) sum += W[i * inSize + j] * x[j];
+            for (int j = 0; j < hSize; j++) sum += U[i * hSize + j] * h[j];
+            res[i] = isSigmoid ? Sigmoid(sum) : Tanh(sum);
+        }
+        return res;
+    }
+    public static (double[] h_next, double[] c_next) LstmStep( double[] x, double[] h_prev, double[] c_prev, double[][] weights, double[][] uWeights, double[][] biases, int hSize)
+    {
+        double[] f = ComputeGate(x, h_prev, weights[0], uWeights[0], biases[0], hSize, true);
+        double[] i = ComputeGate(x, h_prev, weights[1], uWeights[1], biases[1], hSize, true);
+        double[] c_tilde = ComputeGate(x, h_prev, weights[2], uWeights[2], biases[2], hSize, false);
+        double[] o = ComputeGate(x, h_prev, weights[3], uWeights[3], biases[3], hSize, true);
+
+        double[] c_next = new double[hSize];
+        double[] h_next = new double[hSize];
+
+        for (int j = 0; j < hSize; j++)
+        {
+            // Стан комірки: c_t = f_t * c_{t-1} + i_t * c_tilde_t
+            c_next[j] = (f[j] * c_prev[j]) + (i[j] * c_tilde[j]);
+            // Прихований стан: h_t = o_t * tanh(c_t)
+            h_next[j] = o[j] * Tanh(c_next[j]);
+        }
+
+        return (h_next, c_next);
+    }
+    public static double[] CalculateExpertScores(double[] hiddenState, double[] gatingWeights, int numExperts)
+    {
+        int hSize = hiddenState.Length;
+        double[] scores = new double[numExperts];
+        for (int e = 0; e < numExperts; e++) {
+            double sum = 0;
+            for (int j = 0; j < hSize; j++) {
+                sum += hiddenState[j] * gatingWeights[e * hSize + j];
+            }
+            scores[e] = Sigmoid(sum);
+        }
+        return scores;
+    }
+    public static double CalculateBlendedCorrection(double[] hiddenState, Dictionary<int, double[]> expertParams, double[] expertWeights)
+    {
+        double blended = 0;
+        int hSize = hiddenState.Length;
+        for (int e = 0; e < expertWeights.Length; e++) {
+            if (expertParams.ContainsKey(e)) {
+                double expertOpinion = 0;
+                for (int j = 0; j < hSize; j++) {
+                    expertOpinion += hiddenState[j] * expertParams[e][j];
+                }
+                blended += expertOpinion * expertWeights[e];
+            }
+        }
+        return blended;
+    }
+    public static double CalculateCoreDelta(double[] hiddenState, double[] outWeights, double outBias, double[] intuition)
+    {
+        double delta = outBias;
+        for (int j = 0; j < hiddenState.Length; j++) {
+            delta += hiddenState[j] * (outWeights[j] + intuition[j]);
+        }
+        return delta;
+    }
+    public static Dictionary<int, double[]> InitPatternExperts(int numTypes, int hSize)
+    {
+        var experts = new Dictionary<int, double[]>();
+        for (int i = 0; i < numTypes; i++) {
+            experts[i] = new double[hSize];
+        }
+        return experts;
+    }
 }
 public static class HardwareUtils
 {
@@ -1337,325 +1741,8 @@ public static class UnitConverter
         return amount * rate;
     }
 }
-public class Value
-{
-    public double Data { get; set; }
-    public double Grad { get; set; } = 0;
-    private Action _backward;
-    private HashSet<Value> _prev;
-    public Value(double data, IEnumerable<Value> children = null)
-    {
-        Data = data;
-        _prev = children != null ? new HashSet<Value>(children) : new HashSet<Value>();
-        _backward = () => { };
-    }
-    public static Value operator +(Value a, Value b)
-    {
-        var outV = new Value(a.Data + b.Data, new[] { a, b });
-        outV._backward = () => {
-            lock (a) a.Grad += outV.Grad;
-            lock (b) b.Grad += outV.Grad;
-        };
-        return outV;
-    }
-    public static Value operator *(Value a, Value b)
-    {
-        var outV = new Value(a.Data * b.Data, new[] { a, b });
-        outV._backward = () => {
-            lock (a) a.Grad += b.Data * outV.Grad;
-            lock (b) b.Grad += a.Data * outV.Grad;
-        };
-        return outV;
-    }
-    public static Value operator -(Value a, Value b) => a + (b * new Value(-1));
-    public Value Exp()
-    {
-        double e = Math.Exp(Data);
-        var outV = new Value(e, new[] { this });
-        outV._backward = () => {
-            lock (this) Grad += e * outV.Grad;
-        };
-        return outV;
-    }
-    public Value Sigmoid()
-    {
-        double s = 1.0 / (1.0 + Math.Exp(-Data));
-        var outV = new Value(s, new[] { this });
-        outV._backward = () => { lock (this) Grad += s * (1.0 - s) * outV.Grad; };
-        return outV;
-    }
-    public Value Tanh()
-    {
-        double t = Math.Tanh(Data);
-        var outV = new Value(t, new[] { this });
-        outV._backward = () => { lock (this) Grad += (1.0 - t * t) * outV.Grad; };
-        return outV;
-    }
-    public void Backward()
-    {
-        var topo = new List<Value>();
-        var visited = new HashSet<Value>();
-        void BuildTopo(Value v)
-        {
-            if (!visited.Contains(v)) { visited.Add(v); foreach (var child in v._prev) BuildTopo(child); topo.Add(v); }
-        }
-        BuildTopo(this);
-        this.Grad = 1.0;
-        topo.Reverse();
-        foreach (var v in topo) v._backward();
-    }
-}
-public class LstmCell
-{
-    public List<Value> Wf, Uf, Wi, Ui, Wc, Uc, Wo, Uo;
-    public List<Value> bf, bi, bc, bo;
-    private int _inSize, _hSize;
-    private static Random rnd = new Random();
 
-    public LstmCell(int inputSize, int hiddenSize)
-    {
-        _inSize = inputSize; _hSize = hiddenSize;
-        Wf = InitM(hiddenSize, inputSize); Uf = InitM(hiddenSize, hiddenSize); bf = InitV(hiddenSize);
-        Wi = InitM(hiddenSize, inputSize); Ui = InitM(hiddenSize, hiddenSize); bi = InitV(hiddenSize);
-        Wc = InitM(hiddenSize, inputSize); Uc = InitM(hiddenSize, hiddenSize); bc = InitV(hiddenSize);
-        Wo = InitM(hiddenSize, inputSize); Uo = InitM(hiddenSize, hiddenSize); bo = InitV(hiddenSize);
-    }
-
-    private List<Value> InitM(int rows, int cols)
-    {
-        double scale = Math.Sqrt(2.0 / (rows + cols));
-        return Enumerable.Range(0, rows * cols).Select(_ => new Value((rnd.NextDouble() * 2 - 1) * scale)).ToList();
-    }
-
-    private List<Value> InitV(int size) => Enumerable.Range(0, size).Select(_ => new Value(0)).ToList();
-
-    public List<Value> Parameters() =>
-        Wf.Concat(Uf).Concat(bf).Concat(Wi).Concat(Ui).Concat(bi)
-          .Concat(Wc).Concat(Uc).Concat(bc).Concat(Wo).Concat(Uo).Concat(bo).ToList();
-
-    public (List<Value> h_next, List<Value> c_next) Forward(List<Value> x, List<Value> h_prev, List<Value> c_prev)
-    {
-        List<Value> f = Gate(x, h_prev, Wf, Uf, bf, true);
-        List<Value> i = Gate(x, h_prev, Wi, Ui, bi, true);
-        List<Value> c_tilde = Gate(x, h_prev, Wc, Uc, bc, false);
-
-        List<Value> c_next = new List<Value>();
-        for (int j = 0; j < _hSize; j++)
-            c_next.Add((f[j] * c_prev[j]) + (i[j] * c_tilde[j]));
-
-        List<Value> o = Gate(x, h_prev, Wo, Uo, bo, true);
-        List<Value> h_next = new List<Value>();
-        for (int j = 0; j < _hSize; j++)
-            h_next.Add(o[j] * c_next[j].Tanh());
-
-        return (h_next, c_next);
-    }
-
-    private List<Value> Gate(List<Value> x, List<Value> h, List<Value> W, List<Value> U, List<Value> b, bool isSigmoid)
-    {
-        List<Value> res = new List<Value>();
-        for (int i = 0; i < _hSize; i++)
-        {
-            Value sum = b[i];
-            for (int j = 0; j < _inSize; j++) sum = sum + (W[i * _inSize + j] * x[j]);
-            for (int j = 0; j < _hSize; j++) sum = sum + (U[i * _hSize + j] * h[j]);
-            res.Add(isSigmoid ? sum.Sigmoid() : sum.Tanh());
-        }
-        return res;
-    }
-}
-public static class PatternAnalyzer
-{
-    public enum SequenceType { Linear, Oscillating, Fibonacci, Chaotic }
-
-    public static SequenceType Identify(double[] data)
-    {
-        if (data.Length < 3) return SequenceType.Chaotic;
-
-        double[] deltas = new double[data.Length - 1];
-        for (int i = 0; i < deltas.Length; i++) deltas[i] = data[i + 1] - data[i];
-
-        bool isLinear = true;
-        for (int i = 0; i < deltas.Length - 1; i++)
-            if (Math.Abs(deltas[i] - deltas[i + 1]) > 0.1) isLinear = false;
-        if (isLinear) return SequenceType.Linear;
-
-        bool isOsc = true;
-        for (int i = 0; i < deltas.Length - 1; i++)
-        {
-            if (Math.Sign(deltas[i]) == Math.Sign(deltas[i + 1]) && deltas[i] != 0) isOsc = false;
-        }
-        if (isOsc) return SequenceType.Oscillating;
-
-        bool isFib = true;
-        for (int i = 2; i < data.Length; i++)
-            if (Math.Abs((data[i - 2] + data[i - 1]) - data[i]) > 0.5) isFib = false;
-        if (isFib) return SequenceType.Fibonacci;
-
-        return SequenceType.Chaotic;
-    }
-}
-public class EncoderDecoderModel
-{
-    public LstmCell encL1_F, encL1_B, decL1;
-    public List<Value> outW;
-    public Value outB;
-    public Dictionary<PatternAnalyzer.SequenceType, List<Value>> patternExperts;
-    public List<Value> gatingW;
-    private int _hSize;
-
-    public EncoderDecoderModel(int hiddenSize = 64)
-    {
-        _hSize = hiddenSize;
-        encL1_F = new LstmCell(1, hiddenSize);
-        encL1_B = new LstmCell(1, hiddenSize);
-        decL1 = new LstmCell(1, hiddenSize);
-
-        double scale = Math.Sqrt(2.0 / (hiddenSize + 1));
-        var rnd = new Random();
-
-        outW = Enumerable.Range(0, hiddenSize).Select(_ => new Value((rnd.NextDouble() * 2 - 1) * scale)).ToList();
-        outB = new Value(0);
-
-        int numExperts = Enum.GetValues(typeof(PatternAnalyzer.SequenceType)).Length;
-        double gateScale = Math.Sqrt(2.0 / (hiddenSize + numExperts));
-        gatingW = Enumerable.Range(0, hiddenSize * numExperts)
-            .Select(_ => new Value((rnd.NextDouble() * 2 - 1) * gateScale)).ToList();
-
-        patternExperts = new Dictionary<PatternAnalyzer.SequenceType, List<Value>>();
-        foreach (PatternAnalyzer.SequenceType type in Enum.GetValues(typeof(PatternAnalyzer.SequenceType)))
-        {
-            patternExperts[type] = Enumerable.Range(0, hiddenSize).Select(_ => new Value(0)).ToList();
-        }
-    }
-    public List<Value> Parameters()
-    {
-        var p = encL1_F.Parameters()
-            .Concat(encL1_B.Parameters())
-            .Concat(decL1.Parameters())
-            .Concat(outW)
-            .Concat(gatingW)
-            .Append(outB).ToList();
-
-        foreach (var expertParams in patternExperts.Values)
-            p.AddRange(expertParams);
-
-        return p;
-    }
-    public double[] GetWeightsSnapshot() => Parameters().Select(p => p.Data).ToArray();
-
-    public void ApplyWeightsSnapshot(double[] snapshot)
-    {
-        var p = Parameters();
-        if (snapshot.Length != p.Count) return;
-        for (int i = 0; i < p.Count; i++) p[i].Data = snapshot[i];
-    }
-    public List<Value> Forward(double[] normalizedInput, int nFuture)
-    {
-        double baseStep = normalizedInput.Length > 1 ? (normalizedInput.Last() - normalizedInput.First()) / (normalizedInput.Length - 1) : 0;
-        double[] intuition = ContextMemory.GetMemoryInfluence(normalizedInput, _hSize);
-
-        var hf = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
-        var cf = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
-        foreach (var v in normalizedInput) (hf, cf) = encL1_F.Forward(new List<Value> { new Value(v) }, hf, cf);
-
-        var hb = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
-        var cb = Enumerable.Range(0, _hSize).Select(_ => new Value(0)).ToList();
-        foreach (var v in normalizedInput.Reverse()) (hb, cb) = encL1_B.Forward(new List<Value> { new Value(v) }, hb, cb);
-
-        var h_dec = new List<Value>();
-        var c_dec = new List<Value>();
-        for (int i = 0; i < _hSize; i++)
-        {
-            h_dec.Add((hf[i] + hb[i]) * new Value(0.5));
-            c_dec.Add((cf[i] + cb[i]) * new Value(0.5));
-        }
-
-        var expertTypes = Enum.GetValues(typeof(PatternAnalyzer.SequenceType)).Cast<PatternAnalyzer.SequenceType>().ToList();
-        var expertWeights = new List<Value>();
-
-        var scores = new List<Value>();
-        for (int e = 0; e < expertTypes.Count; e++)
-        {
-            Value score = new Value(0);
-            for (int j = 0; j < _hSize; j++)
-                score = score + (h_dec[j] * gatingW[e * _hSize + j]);
-            scores.Add(score);
-        }
-
-        foreach (var s in scores) expertWeights.Add(s.Sigmoid());
-
-        List<Value> preds = new List<Value>();
-        Value lastValue = new Value(normalizedInput.Last());
-
-        for (int i = 0; i < nFuture; i++)
-        {
-            (h_dec, c_dec) = decL1.Forward(new List<Value> { lastValue }, h_dec, c_dec);
-
-            Value blendedExpertCorrection = new Value(0);
-            for (int e = 0; e < expertTypes.Count; e++)
-            {
-                var expertParams = patternExperts[expertTypes[e]];
-                Value expertOpinion = new Value(0);
-                for (int j = 0; j < _hSize; j++)
-                    expertOpinion = expertOpinion + (h_dec[j] * expertParams[j]);
-
-                blendedExpertCorrection = blendedExpertCorrection + (expertOpinion * expertWeights[e]);
-            }
-
-            Value coreDelta = outB;
-            for (int j = 0; j < _hSize; j++)
-                coreDelta = coreDelta + (h_dec[j] * (outW[j] + new Value(intuition[j])));
-
-            Value nextVal = lastValue + new Value(baseStep) + coreDelta + blendedExpertCorrection;
-            preds.Add(nextVal);
-            lastValue = nextVal;
-        }
-        return preds;
-    }
-
-    public List<double[]> ForwardVariants(double[] normalizedInput, int nFuture, int count = 3)
-    {
-        var results = new List<double[]>();
-        Random rnd = new Random();
-        double[] originalWeights = GetWeightsSnapshot();
-        for (int v = 0; v < count; v++)
-        {
-            double[] noisyWeights = originalWeights.Select(w => w + (rnd.NextDouble() * 2 - 1) * (w * 0.03)).ToArray();
-            ApplyWeightsSnapshot(noisyWeights);
-            results.Add(Forward(normalizedInput, nFuture).Select(p => p.Data).ToArray());
-        }
-        ApplyWeightsSnapshot(originalWeights);
-        return results;
-    }
-
-    public void SaveWeights(string file)
-    {
-        try
-        {
-            var p = Parameters();
-            File.WriteAllLines(file, p.Select(v => v.Data.ToString("G17", CultureInfo.InvariantCulture)));
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine($"\n[SYSTEM] Збережено {p.Count} параметрів.");
-            Console.ResetColor();
-        }
-        catch (Exception ex) { Console.WriteLine($"\n[!] ПОМИЛКА: {ex.Message}"); }
-    }
-
-    public void LoadWeights(string file)
-    {
-        if (!File.Exists(file) || new FileInfo(file).Length == 0) return;
-        try
-        {
-            var lines = File.ReadAllLines(file);
-            var p = Parameters();
-            if (lines.Length != p.Count) return;
-            for (int i = 0; i < p.Count; i++) p[i].Data = double.Parse(lines[i], CultureInfo.InvariantCulture);
-            Console.WriteLine($"\n[+] MoE-Engine ({p.Count} точок) завантажено.");
-        }
-        catch { Console.WriteLine("\n[!] Помилка weights.csv."); }
-    }
-}
+/*
 public static class Visualizer
 {
     public static void PrintHeader()
@@ -2045,3 +2132,4 @@ public static class DatasetGenerator
         Console.ResetColor();
     }
 }
+*/
