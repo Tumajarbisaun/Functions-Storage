@@ -21,7 +21,6 @@ public class stringN
     public static implicit operator string(stringN sn) => sn._value;
     public static stringN operator +(stringN a, stringN b) => new stringN(a._value + b._value);
 }
-
 public class vectorN
 {
     private double[] _data;
@@ -48,7 +47,6 @@ public class vectorN
     public double[] ToArray() => (double[])_data.Clone();
     public override string ToString() => $"vectorN[{Size}] {{ {string.Join(", ", _data.Select(d => d.ToString("F2")))} }}";
 }
-
 public class fileN
 {
     public string Path { get; }
@@ -66,7 +64,6 @@ public class fileN
     public stringN ToSmartString() => new stringN(Read());
     public override string ToString() => $"{System.IO.Path.GetFileName(Path)} ({Size})";
 }
-
 public class timeN
 {
     private DateTime _dt;
@@ -82,7 +79,6 @@ public class timeN
     public static implicit operator DateTime(timeN tn) => tn._dt;
     public static implicit operator timeN(DateTime dt) => new timeN(dt);
 }
-
 public class hostN
 {
     public string Address { get; }
@@ -96,7 +92,6 @@ public class hostN
     public void Wake() => NetworkUtils.WakeOnLan(Address);
     public override string ToString() => $"{Address} [{(IsOnline ? "ONLINE" : "OFFLINE")}]";
 }
-
 public class boolN
 {
     private bool _state;
@@ -108,7 +103,6 @@ public class boolN
     public static implicit operator bool(boolN bn) => bn._state;
     public static implicit operator boolN(bool b) => new boolN(b);
 }
-
 public class ifN
 {
     private bool _condition;
@@ -128,7 +122,6 @@ public class ifN
         }
     }
 }
-
 public static class forN
 {
     public static void Between(int start, int end, Action<int> action) {
@@ -143,7 +136,6 @@ public static class forN
         }
     }
 }
-
 public static class whileN
 {
     public static void Cycle(Func<bool> condition, Action action) {
@@ -152,7 +144,6 @@ public static class whileN
         }
     }
 }
-
 public class matrixN
 {
     private double[,] _data;
@@ -169,7 +160,6 @@ public class matrixN
     public matrixN Transpose() => new matrixN(AiUtils.Transpose(_data));
     public override string ToString() => $"matrixN[{Rows}x{Cols}]";
 }
-
 public class listN<T> : List<T>
 {
     public listN() : base() { }
