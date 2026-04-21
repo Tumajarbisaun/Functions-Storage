@@ -176,3 +176,63 @@ public class listN<T> : List<T>
     }
     public static implicit operator listN<T>(T[] array) => new listN<T>(array, true);
 }
+public class stackN<T>
+{
+    private List<T> _items = new List<T>();
+    public int Count => _items.Count;
+    public bool IsEmpty => _items.Count == 0;
+    public void Push(T item) => _items.Add(item);
+    public T Pop() {
+        if (IsEmpty) return default;
+        T item = _items[_items.Count - 1];
+        _items.RemoveAt(_items.Count - 1);
+        return item;
+    }
+    public T Peek() => IsEmpty ? default : _items[_items.Count - 1];
+    public void Clear() => _items.Clear();
+    public static stackN<T> operator +(stackN<T> s, T item) {
+        s.Push(item);
+        return s;
+    }
+    public static stackN<T> operator --(stackN<T> s) {
+        s.Pop();
+        return s;
+    }
+    public static T operator ~(stackN<T> s) => s.Pop();
+    public override string ToString() {
+        if (IsEmpty) return "[ Стек порожній ]";
+        var display = new List<T>(_items);
+        display.Reverse();
+        string content = string.Join(" -> ", display.Take(5));
+        string suffix = display.Count > 5 ? " -> ..." : "";
+        return $"[ {content}{suffix} ]";
+    }
+    public static implicit operator stackN<T>(T[] array) {
+        var s = new stackN<T>();
+        foreach (var item in array) s.Push(item);
+        return s;
+    }
+}
+public class hashSetN<T> : HashSet<T>
+{
+    public hashSetN() : base() { }
+    public hashSetN(IEnumerable<T> collection) : base(collection) { }
+    public static hashSetN<T> operator +(hashSetN<T> s, T item) {
+        s.Add(item);
+        return s;
+    }
+    public static hashSetN<T> operator +(hashSetN<T> a, hashSetN<T> b) {
+        var res = new hashSetN<T>(a);
+        res.UnionWith(b);
+        return res;
+    }
+    public static hashSetN<T> operator -(hashSetN<T> s, T item) {
+        s.Remove(item);
+        return s;
+    }
+    public override string ToString() {
+        if (Count == 0) return "{ }";
+        return $"{{ {string.Join(" | ", this.Take(10))} }}";
+    }
+    public static implicit operator hashSetN<T>(T[] array) => new hashSetN<T>(array);
+}
