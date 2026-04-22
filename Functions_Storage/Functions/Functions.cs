@@ -133,6 +133,73 @@ public static class ArrayUtils
         }
         return true;
     }
+    public static double GetMin(double[] array)
+    {
+        if (array == null || array.Length == 0) throw new ArgumentException("Array is empty!");
+        double min = array[0];
+        for (int i = 1; i < array.Length; i++) {
+            if (array[i] < min) min = array[i];
+        }
+        return min;
+    }
+    public static T[] Slice<T>(T[] array, int start, int end)
+    {
+        if (array == null) return Array.Empty<T>();
+        if (start < 0) start = 0;
+        if (end > array.Length) end = array.Length;
+        int length = end - start;
+        if (length <= 0) return Array.Empty<T>();
+        T[] result = new T[length];
+        Array.Copy(array, start, result, 0, length);
+        return result;
+    }
+    public static TResult[] Map<T, TResult>(T[] array, Func<T, TResult> selector)
+    {
+        if (array == null || selector == null) return Array.Empty<TResult>();
+        TResult[] result = new TResult[array.Length];
+        for (int i = 0; i < array.Length; i++) {
+            result[i] = selector(array[i]);
+        }
+        return result;
+    }
+    public static T[] Distinct<T>(T[] array)
+    {
+        if (array == null || array.Length == 0) return array;
+        HashSet<T> set = new HashSet<T>(array);
+        T[] result = new T[set.Count];
+        set.CopyTo(result);
+        return result;
+    }
+    public static string Join<T>(T[] array, string separator = ", ")
+    {
+        if (array == null || array.Length == 0) return string.Empty;
+        return string.Join(separator, array);
+    }
+    public static bool All<T>(T[] array, Func<T, bool> predicate)
+    {
+        if (array == null || predicate == null) return false;
+        foreach (T item in array) {
+            if (!predicate(item)) return false;
+        }
+        return true;
+    }
+    public static bool Any<T>(T[] array, Func<T, bool> predicate)
+    {
+        if (array == null || predicate == null) return false;
+        foreach (T item in array) {
+            if (predicate(item)) return true;
+        }
+        return false;
+    }
+    public static int Count<T>(T[] array, Func<T, bool> predicate)
+    {
+        if (array == null || predicate == null) return 0;
+        int count = 0;
+        foreach (T item in array) {
+            if (predicate(item)) count++;
+        }
+        return count;
+    }
 }
 public static class MathUtils
 {
@@ -219,6 +286,213 @@ public static class MathUtils
     public static double GetHypotenuse(double a, double b)
     {
         return Math.Sqrt(a * a + b * b);
+    }
+    public static double[] SolveGauss(double[,] A, double[] B)
+    {
+        int n = B.Length;
+        double[,] matrix = (double[,])A.Clone();
+        double[] b = (double[])B.Clone();
+        for (int i = 0; i < n; i++) {
+            int pivot = i;
+            for (int j = i + 1; j < n; j++)
+                if (Math.Abs(matrix[j, i]) > Math.Abs(matrix[pivot, i])) pivot = j;
+            for (int k = i; k < n; k++) {
+                double t = matrix[i, k]; matrix[i, k] = matrix[pivot, k]; matrix[pivot, k] = t;
+            }
+            double tempB = b[i]; b[i] = b[pivot]; b[pivot] = tempB;
+            for (int j = i + 1; j < n; j++) {
+                double factor = matrix[j, i] / matrix[i, i];
+                b[j] -= factor * b[i];
+                for (int k = i; k < n; k++) matrix[j, k] -= factor * matrix[i, k];
+            }
+        }
+        double[] x = new double[n];
+        for (int i = n - 1; i >= 0; i--) {
+            double sum = 0;
+            for (int j = i + 1; j < n; j++) sum += matrix[i, j] * x[j];
+            x[i] = (b[i] - sum) / matrix[i, i];
+        }
+        return x;
+    }
+    public static double NewtonMethod(Func<double, double> f, Func<double, double> df, double x0, double eps = 1e-7)
+    {
+        double x = x0;
+        int maxIterations = 1000;
+        for (int i = 0; i < maxIterations; i++) {
+            double fx = f(x);
+            double dfx = df(x);
+            if (Math.Abs(dfx) < 1e-12) break;
+
+            double xNext = x - fx / dfx;
+            if (Math.Abs(xNext - x) < eps) return xNext;
+            x = xNext;
+        }
+        return x;
+    }
+    public static double SimpleIteration(Func<double, double> g, double x0, double eps = 1e-7) 
+    {
+        double x = x0;
+        int maxIterations = 1000;
+        for (int i = 0; i < maxIterations; i++) {
+            double xNext = g(x);
+            if (Math.Abs(xNext - x) < eps) return xNext;
+            x = xNext;
+        }
+        return x;
+    }
+    public static double MonteCarloPi(int points = 1000000)
+    {
+        Random rnd = new Random();
+        int insideCircle = 0;
+        for (int i = 0; i < points; i++) {
+            double x = rnd.NextDouble();
+            double y = rnd.NextDouble();
+            if (x * x + y * y <= 1) insideCircle++;
+        }
+        return (double)insideCircle / points * 4;
+    }
+    public static double SimulatedAnnealing(Func<double, double> f, double startX, double temp = 1000.0, double coolRate = 0.99)
+    {
+        Random rnd = new Random();
+        double currentX = startX;
+        double currentEnergy = f(currentX);
+        while (temp > 0.01)
+        {
+            double nextX = currentX + (rnd.NextDouble() * 2 - 1);
+            double nextEnergy = f(nextX);
+            if (nextEnergy < currentEnergy || Math.Exp((currentEnergy - nextEnergy) / temp) > rnd.NextDouble()) {
+                currentX = nextX;
+                currentEnergy = nextEnergy;
+            }
+            temp *= coolRate;
+        }
+        return currentX;
+    }
+    public static double[] AntColonyOptimization(double[,] distances, int antsCount = 10, int iterations = 100)
+    {
+        int n = distances.GetLength(0);
+        double[,] pheromones = new double[n, n];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++) pheromones[i, j] = 0.1;
+        double bestDist = double.MaxValue;
+        Random rnd = new Random();
+        for (int iter = 0; iter < iterations; iter++) {
+            for (int ant = 0; ant < antsCount; ant++) {
+                int[] path = GenerateRandomPath(n, rnd);
+                double currentDist = CalculatePathDistance(path, distances);
+                if (currentDist < bestDist) {
+                    bestDist = currentDist;
+                    UpdatePheromones(pheromones, path, currentDist);
+                }
+            }
+            EvaporatePheromones(pheromones, 0.5);
+        }
+        return new double[] { bestDist };
+    }
+    private static int[] GenerateRandomPath(int n, Random rnd)
+    {
+        int[] path = new int[n];
+        for (int i = 0; i < n; i++) path[i] = i;
+        for (int i = n - 1; i > 0; i--)
+        {
+            int j = rnd.Next(i + 1);
+            int temp = path[i];
+            path[i] = path[j];
+            path[j] = temp;
+        }
+        return path;
+    }
+    private static double CalculatePathDistance(int[] path, double[,] distances)
+    {
+        double total = 0;
+        for (int i = 0; i < path.Length - 1; i++)
+        {
+            total += distances[path[i], path[i + 1]];
+        }
+        total += distances[path[path.Length - 1], path[0]];
+        return total;
+    }
+    private static void UpdatePheromones(double[,] ph, int[] path, double dist)
+    {
+        double deposit = 1.0 / dist;
+        for (int i = 0; i < path.Length - 1; i++)
+            ph[path[i], path[i + 1]] += deposit;
+    }
+    private static void EvaporatePheromones(double[,] ph, double rho)
+    {
+        for (int i = 0; i < ph.GetLength(0); i++)
+            for (int j = 0; j < ph.GetLength(1); j++) ph[i, j] *= (1 - rho);
+    }
+    public static double[] SolveGaussSeidel(double[,] A, double[] f, double epsilon)
+    {
+        int n = f.Length;
+        double[] x = new double[n];
+        int itCount = 0;
+        while (true) {
+            double[] xOld = (double[])x.Clone();
+            for (int i = 0; i < n; i++) {
+                double sum1 = 0;
+                for (int j = 0; j < i; j++) {
+                    sum1 += A[i, j] * x[j];
+                }
+                double sum2 = 0;
+                for (int j = i + 1; j < n; j++) {
+                    sum2 += A[i, j] * xOld[j];
+                }
+                x[i] = (f[i] - sum1 - sum2) / A[i, i];
+            }
+            itCount++;
+            double maxDiff = 0;
+            for (int i = 0; i < n; i++) {
+                double diff = Math.Abs(x[i] - xOld[i]);
+                if (diff > maxDiff) maxDiff = diff;
+            }
+            if (maxDiff < epsilon || itCount > 10000) break;
+        }
+        return x;
+    }
+    public static double[] CalculateResidual(double[,] A, double[] x, double[] f)
+    {
+        int n = f.Length;
+        double[] residual = new double[n];
+        for (int i = 0; i < n; i++) {
+            double ax = 0;
+            for (int j = 0; j < n; j++) {
+                ax += A[i, j] * x[j];
+            }
+            residual[i] = ax - f[i];
+        }
+        return residual;
+    }
+    public static double[] SolveJacobi(double[,] A, double[] f, double epsilon)
+    {
+        int n = f.Length;
+        double[] x = new double[n];
+        double[] xNext = new double[n];
+        int itCount = 0;
+        while (true) {
+            for (int i = 0; i < n; i++) {
+                double sum = 0;
+                for (int j = 0; j < n; j++) {
+                    if (i != j) {
+                        sum += A[i, j] * x[j];
+                    }
+                }
+                xNext[i] = (f[i] - sum) / A[i, i];
+            }
+            itCount++;
+            double maxDiff = 0;
+            for (int i = 0; i < n; i++) {
+                double diff = Math.Abs(xNext[i] - x[i]);
+                if (diff > maxDiff) maxDiff = diff;
+            }
+            Array.Copy(xNext, x, n);
+            if (maxDiff < epsilon || itCount > 10000) {
+                if (itCount > 10000) Console.WriteLine("Warning: Jacobi did not converge.");
+                break;
+            }
+        }
+        return x;
     }
 }
 public static class StringUtils
@@ -1573,6 +1847,66 @@ public static class AiUtils
             experts[i] = new double[hSize];
         }
         return experts;
+    }
+    public static double[][] GenerateData(int n)
+    {
+        Random rnd = new Random();
+        double[][] data = new double[n][];
+        for (int i = 0; i < n; i++) {
+            data[i] = new double[] { rnd.NextDouble(), rnd.NextDouble() };
+        }
+        return data;
+    }
+    public static (double[][] centers, int[] labels) KMeans(double[][] data, int k, int maxIter = 100)
+    {
+        int n = data.Length;
+        int dims = data[0].Length;
+        Random rnd = new Random();
+        double[][] centers = new double[k][];
+        for (int i = 0; i < k; i++) centers[i] = (double[])data[rnd.Next(n)].Clone();
+        int[] labels = new int[n];
+        bool changed = true;
+        int iter = 0;
+        while (changed && iter < maxIter) {
+            changed = false;
+            iter++;
+            for (int i = 0; i < n; i++) {
+                int bestCluster = 0;
+                double minDist = double.MaxValue;
+                for (int j = 0; j < k; j++) {
+                    double dist = EuclideanDistance(data[i], centers[j]);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestCluster = j;
+                    }
+                }
+                if (labels[i] != bestCluster) {
+                    labels[i] = bestCluster;
+                    changed = true;
+                }
+            }
+            double[][] newCenters = new double[k][];
+            int[] counts = new int[k];
+            for (int i = 0; i < k; i++) newCenters[i] = new double[dims];
+            for (int i = 0; i < n; i++) {
+                int cluster = labels[i];
+                counts[cluster]++;
+                for (int d = 0; d < dims; d++) newCenters[cluster][d] += data[i][d];
+            }
+            for (int j = 0; j < k; j++) {
+                if (counts[j] > 0)
+                    for (int d = 0; d < dims; d++) centers[j][d] = newCenters[j][d] / counts[j];
+            }
+        }
+        return (centers, labels);
+    }
+    public static double EvaluateClustering(double[][] data, int[] labels, double[][] centers)
+    {
+        double totalDist = 0;
+        for (int i = 0; i < data.Length; i++) {
+            totalDist += EuclideanDistance(data[i], centers[labels[i]]);
+        }
+        return totalDist / data.Length;
     }
 }
 public static class HardwareUtils

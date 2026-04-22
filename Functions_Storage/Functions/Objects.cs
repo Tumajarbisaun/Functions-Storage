@@ -8,36 +8,27 @@ public class stringN
 {
     private char[] _v;
     public int Length { get; private set; }
-
-    public stringN(string s)
-    {
+    public stringN(string s) {
         if (s == null) { _v = new char[0]; Length = 0; return; }
         Length = s.Length;
         _v = new char[Length];
         for (int i = 0; i < Length; i++) _v[i] = s[i];
     }
-
-    public bool IsPalindrome
-    {
-        get
-        {
+    public bool IsPalindrome {
+        get {
             for (int i = 0; i < Length / 2; i++)
                 if (_v[i] != _v[Length - 1 - i]) return false;
             return true;
         }
     }
-
-    public stringN Reverse()
-    {
+    public stringN Reverse() {
         char[] a = new char[Length];
         for (int i = 0; i < Length; i++) a[i] = _v[Length - 1 - i];
         return new stringN(new string(a));
     }
-
     public override string ToString() => new string(_v);
     public static implicit operator stringN(string s) => new stringN(s);
-    public static stringN operator +(stringN a, stringN b)
-    {
+    public static stringN operator +(stringN a, stringN b) {
         char[] res = new char[a.Length + b.Length];
         for (int i = 0; i < a.Length; i++) res[i] = a._v[i];
         for (int i = 0; i < b.Length; i++) res[a.Length + i] = b._v[i];
@@ -50,30 +41,22 @@ public class vectorN
     public int Size => _d.Length;
     public vectorN(params double[] v) => _d = v;
     public double this[int i] { get => _d[i]; set => _d[i] = value; }
-
-    public double Dot(vectorN o)
-    {
+    public double Dot(vectorN o) {
         double r = 0;
         for (int i = 0; i < Size; i++) r += _d[i] * o._d[i];
         return r;
     }
-
-    public static vectorN operator +(vectorN a, vectorN b)
-    {
+    public static vectorN operator +(vectorN a, vectorN b) {
         double[] r = new double[a.Size];
         for (int i = 0; i < a.Size; i++) r[i] = a[i] + b[i];
         return new vectorN(r);
     }
-
-    public static vectorN operator *(vectorN a, double s)
-    {
+    public static vectorN operator *(vectorN a, double s) {
         double[] r = new double[a.Size];
         for (int i = 0; i < a.Size; i++) r[i] = a[i] * s;
         return new vectorN(r);
     }
-
-    public override string ToString()
-    {
+    public override string ToString() {
         string s = "vec{";
         for (int i = 0; i < Size; i++) s += _d[i].ToString("F2") + (i == Size - 1 ? "" : ",");
         return s + "}";
