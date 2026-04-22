@@ -494,6 +494,144 @@ public static class MathUtils
         }
         return x;
     }
+    public static double IntegrateTrapezoidal(Func<double, double> f, double a, double b, int n)
+    {
+        double h = (b - a) / n;
+        double sum = 0.5 * (f(a) + f(b));
+        for (int i = 1; i < n; i++) {
+            sum += f(a + i * h);
+        }
+        return sum * h;
+    }
+    public static double IntegrateSimpson(Func<double, double> f, double a, double b, int n)
+    {
+        if (n % 2 != 0) n++;
+        double h = (b - a) / n;
+        double sum = f(a) + f(b);
+        for (int i = 1; i < n; i++) {
+            double x = a + i * h;
+            sum += (i % 2 == 0) ? 2 * f(x) : 4 * f(x);
+        }
+        return sum * h / 3.0;
+    }
+    public static void SolveEuler(Func<double, double, double> dydx, double x0, double y0, double xEnd, double h)
+    {
+        double x = x0;
+        double y = y0;
+        while (x <= xEnd) {
+            Console.WriteLine($"x: {x:F2}, y: {y:F5}");
+            y += h * dydx(x, y);
+            x += h;
+        }
+    }
+    public static double SolveRungeKutta4(Func<double, double, double> f, double x0, double y0, double h)
+    {
+        double k1 = h * f(x0, y0);
+        double k2 = h * f(x0 + h / 2.0, y0 + k1 / 2.0);
+        double k3 = h * f(x0 + h / 2.0, y0 + k2 / 2.0);
+        double k4 = h * f(x0 + h, y0 + k3);
+        return y0 + (k1 + 2 * k2 + 2 * k3 + k4) / 6.0;
+    }
+    public static double InterpolateLagrange(double[] xValues, double[] yValues, double x)
+    {
+        double result = 0;
+        int n = xValues.Length;
+        for (int i = 0; i < n; i++) {
+            double term = yValues[i];
+            for (int j = 0; j < n; j++) {
+                if (i != j)
+                    term *= (x - xValues[j]) / (xValues[i] - xValues[j]);
+            }
+            result += term;
+        }
+        return result;
+    }
+    public static double InterpolateLinearSpline(double[] xValues, double[] yValues, double x)
+    {
+        int n = xValues.Length;
+        if (x <= xValues[0]) return yValues[0];
+        if (x >= xValues[n - 1]) return yValues[n - 1];
+        for (int i = 0; i < n - 1; i++) {
+            if (x >= xValues[i] && x <= xValues[i + 1]) {
+                return yValues[i] + (x - xValues[i]) * (yValues[i + 1] - yValues[i]) / (xValues[i + 1] - xValues[i]);
+            }
+        }
+        return 0;
+    }
+    public static double GetPearsonCorrelation(double[] x, double[] y)
+    {
+        if (x.Length != y.Length) throw new ArgumentException("Arrays must be of the same length.");
+        int n = x.Length;
+        double avgX = ArrayUtils.GetAverage(x);
+        double avgY = ArrayUtils.GetAverage(y);
+        double sumNumerator = 0;
+        double sumDenomX = 0;
+        double sumDenomY = 0;
+        for (int i = 0; i < n; i++) {
+            double diffX = x[i] - avgX;
+            double diffY = y[i] - avgY;
+            sumNumerator += diffX * diffY;
+            sumDenomX += diffX * diffX;
+            sumDenomY += diffY * diffY;
+        }
+        if (sumDenomX == 0 || sumDenomY == 0) return 0;
+        return sumNumerator / Math.Sqrt(sumDenomX * sumDenomY);
+    }
+    public static (double a, double b) LeastSquares(double[] x, double[] y)
+    {
+        if (x.Length != y.Length) throw new ArgumentException("Arrays must be of the same length.");
+        int n = x.Length;
+        double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        for (int i = 0; i < n; i++) {
+            sumX += x[i];
+            sumY += y[i];
+            sumXY += x[i] * y[i];
+            sumX2 += x[i] * x[i];
+        }
+        double a = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        double b = (sumY - a * sumX) / n;
+        return (a, b);
+    }
+    public static double EvaluatePolynomialHorner(double[] coefficients, double x)
+    {
+        double result = coefficients[0];
+        for (int i = 1; i < coefficients.Length; i++) {
+            result = result * x + coefficients[i];
+        }
+        return result;
+    }
+    public static double InterpolateNewton(double[] xValues, double[] yValues, double x)
+    {
+        int n = xValues.Length;
+        double[,] diff = new double[n, n];
+        for (int i = 0; i < n; i++) diff[i, 0] = yValues[i];
+        for (int j = 1; j < n; j++) {
+            for (int i = 0; i < n - j; i++) {
+                diff[i, j] = (diff[i + 1, j - 1] - diff[i, j - 1]) / (xValues[i + j] - xValues[i]);
+            }
+        }
+        double result = diff[0, 0];
+        double product = 1;
+        for (int i = 1; i < n; i++) {
+            product *= (x - xValues[i - 1]);
+            result += diff[0, i] * product;
+        }
+        return result;
+    }
+    public static double ChebyshevPolynomial(int n, double x)
+    {
+        if (n == 0) return 1;
+        if (n == 1) return x;
+        double t0 = 1;
+        double t1 = x;
+        double tn = 0;
+        for (int i = 2; i <= n; i++) {
+            tn = 2 * x * t1 - t0;
+            t0 = t1;
+            t1 = tn;
+        }
+        return tn;
+    }
 }
 public static class StringUtils
 {
